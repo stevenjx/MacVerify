@@ -25,6 +25,9 @@ struct PerformanceView: View {
                 level: .neutral
             )
         }
+        .onDisappear {
+            gpuBenchmark.cancel()
+        }
     }
 
     // MARK: - CPU

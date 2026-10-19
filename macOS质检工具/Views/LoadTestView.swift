@@ -75,6 +75,9 @@ struct LoadTestView: View {
                 }
             }
         }
+        .onDisappear {
+            engine.stop()
+        }
     }
 
     private func durationLabel(_ seconds: Int) -> String {

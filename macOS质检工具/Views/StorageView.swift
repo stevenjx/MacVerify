@@ -99,6 +99,9 @@ struct StorageView: View {
                 }
             }
         }
+        .onDisappear {
+            if benchmark.isRunning { benchmark.cancel() }
+        }
     }
 
     private var smartText: String {

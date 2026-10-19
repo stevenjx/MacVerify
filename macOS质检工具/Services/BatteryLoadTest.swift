@@ -139,13 +139,14 @@ final class BatteryLoadTest: ObservableObject {
         let count = max(1, ProcessInfo.processInfo.activeProcessorCount - 1)
         for index in 0..<count {
             let thread = Thread { [weak self] in
-                guard let self = self else { return }
                 var value = Double(index + 1) * 0.7
                 while true {
-                    self.stopLock.lock()
-                    let stop = self.shouldStop
-                    self.stopLock.unlock()
-                    if stop { break }
+                    // 每轮重新获取，避免线程长期持有 self 导致无法释放
+                    guard let engine = self else { return }
+                    engine.stopLock.lock()
+                    let stop = engine.shouldStop
+                    engine.stopLock.unlock()
+                    if stop { return }
                     value = (value * 1.000001).truncatingRemainder(dividingBy: 1000) + abs(sin(value)).squareRoot()
                 }
             }

@@ -93,12 +93,12 @@ final class GPUBenchmark: ObservableObject {
         let rounds: UInt32 = 2_048
 
         workQueue.async { [weak self] in
-            guard let self = self else { return }
             while true {
+                guard let self = self else { return }
                 self.stateLock.lock()
                 let stop = self.shouldStop
                 self.stateLock.unlock()
-                if stop { break }
+                if stop { return }
 
                 guard let commandBuffer = queue.makeCommandBuffer(),
                       let encoder = commandBuffer.makeComputeCommandEncoder() else { break }

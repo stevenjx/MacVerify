@@ -65,7 +65,7 @@ struct RootView: View {
     @ObservedObject private var themeStore = ThemeStore.shared
 
     @State private var selection: SidebarItem = {
-        if let raw = ProcessInfo.processInfo.environment["MACCHECK_PAGE"],
+        if let raw = ProcessInfo.processInfo.environment["MACVERIFY_PAGE"],
            let item = SidebarItem(rawValue: raw) {
             return item
         }
@@ -95,7 +95,7 @@ struct RootView: View {
                     .frame(width: 26, height: 26)
                     .cornerRadius(6)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("MacCheck").font(.system(size: 13, weight: .semibold))
+                    Text("MacVerify").font(.system(size: 13, weight: .semibold))
                     Text(T("二手 Mac 质检", "Used Mac Inspection"))
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)

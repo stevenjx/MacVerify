@@ -59,7 +59,7 @@ final class BatteryLoadTest: ObservableObject {
     private var targetDuration: TimeInterval = 600
 
     private var timer: DispatchSourceTimer?
-    private let sampleQueue = DispatchQueue(label: "maccheck.loadtest.sample", qos: .userInitiated)
+    private let sampleQueue = DispatchQueue(label: "macverify.loadtest.sample", qos: .userInitiated)
     private var stressThreads: [Thread] = []
     private let stopLock = NSLock()
     private var shouldStop = true
@@ -150,7 +150,7 @@ final class BatteryLoadTest: ObservableObject {
                     value = (value * 1.000001).truncatingRemainder(dividingBy: 1000) + abs(sin(value)).squareRoot()
                 }
             }
-            thread.name = "maccheck.load.\(index)"
+            thread.name = "macverify.load.\(index)"
             thread.stackSize = 512 * 1024
             thread.start()
             stressThreads.append(thread)
@@ -346,7 +346,7 @@ final class BatteryLoadTest: ObservableObject {
 
 final class AuditHistoryStore: ObservableObject {
     static let shared = AuditHistoryStore()
-    private static let key = "maccheck.audit.history"
+    private static let key = "macverify.audit.history"
 
     @Published private(set) var results: [BatteryAuditResult] = []
 

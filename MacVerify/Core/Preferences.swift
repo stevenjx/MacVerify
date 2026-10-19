@@ -28,7 +28,7 @@ public enum AppTheme: String, CaseIterable, Identifiable {
 
 public final class ThemeStore: ObservableObject {
     public static let shared = ThemeStore()
-    private static let storageKey = "maccheck.appearance"
+    private static let storageKey = "macverify.appearance"
 
     @Published public var theme: AppTheme {
         didSet { UserDefaults.standard.set(theme.rawValue, forKey: Self.storageKey) }
@@ -52,6 +52,6 @@ public enum BuildInfo {
     static var appName: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
             ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
-            ?? "MacCheck"
+            ?? "MacVerify"
     }
 }

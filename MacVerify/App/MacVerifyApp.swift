@@ -1,4 +1,4 @@
-// App/MacCheckApp.swift
+// App/MacVerifyApp.swift
 import SwiftUI
 import AppKit
 
@@ -9,7 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 @main
-struct MacCheckApp: App {
+struct MacVerifyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var system = SystemInfoStore()
     @StateObject private var battery = BatteryStore()

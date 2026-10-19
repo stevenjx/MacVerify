@@ -9,7 +9,7 @@ final class BatteryStore: ObservableObject {
     @Published private(set) var resistanceSamples: Int = 0
 
     private var timer: DispatchSourceTimer?
-    private let queue = DispatchQueue(label: "maccheck.battery.sample", qos: .utility)
+    private let queue = DispatchQueue(label: "macverify.battery.sample", qos: .utility)
 
     private struct ElectricalSample {
         let voltage: Double

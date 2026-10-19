@@ -7,7 +7,7 @@ struct AboutView: View {
     @ObservedObject private var themeStore = ThemeStore.shared
     @EnvironmentObject private var system: SystemInfoStore
 
-    private let projectURL = "https://github.com/stevenjx/MacCheck"
+    private let projectURL = "https://github.com/stevenjx/MacVerify"
 
     var body: some View {
         PageScroll {
@@ -19,7 +19,7 @@ struct AboutView: View {
                     .frame(width: 72, height: 72)
                     .cornerRadius(14)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("MacCheck").font(.system(size: 20, weight: .bold))
+                    Text("MacVerify").font(.system(size: 20, weight: .bold))
                     Text(T("二手 Mac 硬件质检工具", "Hardware inspection for used Macs"))
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
@@ -102,7 +102,7 @@ struct AboutView: View {
     private func copyReport() {
         let info = system.info
         let report = """
-        MacCheck \(BuildInfo.version) (\(BuildInfo.build))
+        MacVerify \(BuildInfo.version) (\(BuildInfo.build))
         Model: \(info.modelDisplayName) [\(info.modelIdentifier)]
         Serial: \(info.serialNumber)
         Chip: \(info.chipName) · \(info.architecture)
@@ -159,7 +159,7 @@ struct SettingsView: View {
             }
 
             Divider()
-            Text(T("MacCheck \(BuildInfo.version) · 本机检测，不上传数据", "MacCheck \(BuildInfo.version) · Local only, no uploads"))
+            Text(T("MacVerify \(BuildInfo.version) · 本机检测，不上传数据", "MacVerify \(BuildInfo.version) · Local only, no uploads"))
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
             Spacer()

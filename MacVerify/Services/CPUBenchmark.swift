@@ -9,7 +9,7 @@ final class CPUBenchmark: ObservableObject {
     @Published private(set) var message: String = T("就绪", "Ready")
     @Published private(set) var progress: Double = 0
 
-    private let queue = DispatchQueue(label: "maccheck.cpu.benchmark", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "macverify.cpu.benchmark", qos: .userInitiated)
 
     /// 防止编译器把纯计算循环优化掉
     private static var sink: Double = 0

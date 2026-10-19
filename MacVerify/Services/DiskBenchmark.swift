@@ -20,7 +20,7 @@ final class DiskBenchmark: ObservableObject {
     @Published private(set) var message: String = T("就绪", "Ready")
     @Published private(set) var isRunning = false
 
-    private let queue = DispatchQueue(label: "maccheck.disk.benchmark", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "macverify.disk.benchmark", qos: .userInitiated)
     private let cancelLock = NSLock()
     private var cancelled = false
 
@@ -60,7 +60,7 @@ final class DiskBenchmark: ObservableObject {
         let totalBytes = sizeMB * 1024 * 1024
         let chunkCount = max(1, totalBytes / chunkSize)
         let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("maccheck-benchmark-\(UUID().uuidString).bin")
+            .appendingPathComponent("macverify-benchmark-\(UUID().uuidString).bin")
 
         defer {
             try? FileManager.default.removeItem(at: fileURL)

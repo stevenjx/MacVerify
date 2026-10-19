@@ -1,4 +1,4 @@
-# MacCheck
+# MacVerify
 
 二手 MacBook 硬件质检工具 · 面向 macOS 12 Monterey 及以上 · 通用二进制（Intel / Apple Silicon）
 
@@ -44,9 +44,9 @@ Hardware inspection for used MacBooks. macOS 12+ · Universal binary (Intel & Ap
 
 ## 安装 / Install
 
-1. 下载 `MacCheck-1.0.0.dmg`
-2. 打开后将 `MacCheck.app` 拖入「应用程序」
-3. 首次打开如提示“无法验证开发者”，右键点击应用 → 打开（或执行 `xattr -dr com.apple.quarantine /Applications/MacCheck.app`）
+1. 下载 `MacVerify-1.0.1.dmg`
+2. 打开后将 `MacVerify.app` 拖入「应用程序」
+3. 首次打开如提示“无法验证开发者”，右键点击应用 → 打开（或执行 `xattr -dr com.apple.quarantine /Applications/MacVerify.app`）
 
 应用为本地 ad-hoc 签名，未做 Apple 公证。
 
@@ -54,14 +54,14 @@ Hardware inspection for used MacBooks. macOS 12+ · Universal binary (Intel & Ap
 
 ```bash
 # 通用二进制
-xcodebuild -project "macOS质检工具.xcodeproj" -scheme MacCheck \
+xcodebuild -project "MacVerify.xcodeproj" -scheme MacVerify \
   -configuration Release -destination 'generic/platform=macOS' \
   -derivedDataPath build build
 
-open build/Build/Products/Release/MacCheck.app
+open build/Build/Products/Release/MacVerify.app
 ```
 
-命令行入口 `MACCHECK_PAGE=<overview|hardware|security|display|storage|performance|input|battery|loadTest|power|about>` 可直接打开指定页面，便于排查问题。
+命令行入口 `MACVERIFY_PAGE=<overview|hardware|security|display|storage|performance|input|battery|loadTest|power|about>` 可直接打开指定页面，便于排查问题。
 
 ## 隐私 / Privacy
 
@@ -76,6 +76,11 @@ open build/Build/Products/Release/MacCheck.app
 - **压降与内阻**：必须在电池供电、真实放电时才有效；接电源时该项会被排除。
 
 ## Changelog
+
+### 1.0.1
+- 应用更名为 **MacVerify**（原 MacCheck），Xcode 工程、目标、源码目录同步改名
+- Bundle 标识更新为 `com.steven.MacVerify`
+- 界面标题、窗口标题与设置项统一使用 MacVerify
 
 ### 1.0.0
 - 重写全部数据采集逻辑，移除了旧版本中由哈希/随机数生成的读写量、温度、FPS、容量与评分

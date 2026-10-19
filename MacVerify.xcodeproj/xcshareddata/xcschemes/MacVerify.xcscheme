@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "1000000000000000000000A4"
-               BuildableName = "MacCheck.app"
-               BlueprintName = "macOS质检工具"
-               ReferencedContainer = "container:macOS质检工具.xcodeproj">
+               BuildableName = "MacVerify.app"
+               BlueprintName = "MacVerify"
+               ReferencedContainer = "container:MacVerify.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -45,9 +45,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "1000000000000000000000A4"
-            BuildableName = "MacCheck.app"
-            BlueprintName = "macOS质检工具"
-            ReferencedContainer = "container:macOS质检工具.xcodeproj">
+            BuildableName = "MacVerify.app"
+            BlueprintName = "MacVerify"
+            ReferencedContainer = "container:MacVerify.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -62,9 +62,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "1000000000000000000000A4"
-            BuildableName = "MacCheck.app"
-            BlueprintName = "macOS质检工具"
-            ReferencedContainer = "container:macOS质检工具.xcodeproj">
+            BuildableName = "MacVerify.app"
+            BlueprintName = "MacVerify"
+            ReferencedContainer = "container:MacVerify.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

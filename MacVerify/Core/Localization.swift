@@ -22,7 +22,7 @@ public enum AppLanguage: String, CaseIterable, Identifiable {
 public final class Localization: ObservableObject {
     public static let shared = Localization()
 
-    private static let storageKey = "maccheck.language"
+    private static let storageKey = "macverify.language"
 
     @Published public var language: AppLanguage {
         didSet {

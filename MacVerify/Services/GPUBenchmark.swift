@@ -18,7 +18,7 @@ final class GPUBenchmark: ObservableObject {
     private var commandQueue: MTLCommandQueue?
     private var pipeline: MTLComputePipelineState?
 
-    private var workQueue = DispatchQueue(label: "maccheck.gpu.stress", qos: .userInitiated)
+    private var workQueue = DispatchQueue(label: "macverify.gpu.stress", qos: .userInitiated)
     private let stateLock = NSLock()
     private var shouldStop = false
     private var completedInWindow = 0
@@ -42,7 +42,7 @@ final class GPUBenchmark: ObservableObject {
         #include <metal_stdlib>
         using namespace metal;
 
-        kernel void maccheck_stress(device float *output [[buffer(0)]],
+        kernel void macverify_stress(device float *output [[buffer(0)]],
                                     constant uint &rounds [[buffer(1)]],
                                     uint gid [[thread_position_in_grid]]) {
             float x = float(gid) * 0.001f + 1.0f;
@@ -56,7 +56,7 @@ final class GPUBenchmark: ObservableObject {
         """
         do {
             let library = try device.makeLibrary(source: source, options: nil)
-            guard let function = library.makeFunction(name: "maccheck_stress") else { return nil }
+            guard let function = library.makeFunction(name: "macverify_stress") else { return nil }
             return try device.makeComputePipelineState(function: function)
         } catch {
             return nil

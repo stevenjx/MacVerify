@@ -96,7 +96,7 @@ struct PowerView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     SectionHeader(title: T("充电管理", "CHARGE MANAGEMENT"))
                     Text(T("macOS 会在系统设置中提供“优化电池充电”和充电上限（部分机型）。第三方应用无法安全地改写充电阈值，本工具只读取状态，不修改系统设置。",
-                           "macOS manages Optimized Battery Charging and, on some models, a charge limit in System Settings. Third-party apps cannot safely override these thresholds, so MacCheck only reads the state."))
+                           "macOS manages Optimized Battery Charging and, on some models, a charge limit in System Settings. Third-party apps cannot safely override these thresholds, so MacVerify only reads the state."))
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

@@ -9,7 +9,7 @@ final class SystemInfoStore: ObservableObject {
     @Published private(set) var info = MacSystemInfo()
     @Published private(set) var isScanning = false
 
-    private let scanQueue = DispatchQueue(label: "maccheck.system.scan", qos: .userInitiated)
+    private let scanQueue = DispatchQueue(label: "macverify.system.scan", qos: .userInitiated)
 
     init() {
         refresh()

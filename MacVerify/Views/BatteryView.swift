@@ -74,10 +74,12 @@ struct BatteryView: View {
     }
 
     private var healthColor: Color {
-        guard let health = battery.healthPercent else { return .secondary }
-        if health >= 85 { return .green }
-        if health >= 75 { return .orange }
-        return .red
+        switch battery.healthGrade {
+        case .excellent, .good: return .green
+        case .fair: return .orange
+        case .service: return .red
+        case .unknown: return .secondary
+        }
     }
 
     // MARK: - 详情
@@ -87,7 +89,7 @@ struct BatteryView: View {
             VStack(spacing: 0) {
                 SectionHeader(title: T("电池信息", "BATTERY INFO")).padding(.bottom, 8)
                 InfoRow(label: T("序列号", "Serial"), value: battery.serialNumber, monospaced: true)
-                InfoRow(label: T("制造商", "Manufacturer"), value: battery.manufacturer)
+                InfoRow(label: T("计量芯片", "Gauge chip"), value: battery.gaugeModel.isEmpty ? T("不可用", "Unavailable") : battery.gaugeModel, monospaced: true)
                 InfoRow(label: T("设计容量", "Design capacity"), value: battery.designCapacity > 0 ? "\(battery.designCapacity) mAh" : T("不可用", "Unavailable"))
                 InfoRow(label: T("当前满充容量", "Full charge capacity"), value: battery.healthCapacity > 0 ? "\(battery.healthCapacity) mAh" : T("不可用", "Unavailable"))
                 InfoRow(label: T("剩余容量", "Remaining"), value: battery.remainingCapacity > 0 ? "\(battery.remainingCapacity) mAh" : "—")

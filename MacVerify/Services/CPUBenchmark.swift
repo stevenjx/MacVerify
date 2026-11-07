@@ -12,7 +12,14 @@ final class CPUBenchmark: ObservableObject {
     private let queue = DispatchQueue(label: "macverify.cpu.benchmark", qos: .userInitiated)
 
     /// 防止编译器把纯计算循环优化掉
+    private static let sinkLock = NSLock()
     private static var sink: Double = 0
+
+    private static func storeSink(_ value: Double) {
+        sinkLock.lock()
+        sink = value
+        sinkLock.unlock()
+    }
 
     func start() {
         guard !isRunning else { return }
@@ -53,12 +60,14 @@ final class CPUBenchmark: ObservableObject {
         for threadIndex in 0..<threads {
             group.enter()
             Thread.detachNewThread {
+                // 明确 QoS，避免线程被调度到能效核导致同一台机器两次结果差一倍
+                Thread.current.qualityOfService = .userInteractive
                 var value = Double(threadIndex + 1) * 0.31
                 for index in 0..<iterations {
                     value += (abs(sin(value) * cos(value)) + Double(index % 97)).squareRoot()
                     if value > 1_000_000 { value = value.truncatingRemainder(dividingBy: 1000) }
                 }
-                sink = value
+                Self.storeSink(value)
                 group.leave()
             }
         }

@@ -104,6 +104,7 @@ final class BatteryStore: ObservableObject {
 
         snapshot.serialNumber = (properties["Serial"] as? String) ?? (properties["BatterySerialNumber"] as? String) ?? "—"
         snapshot.manufacturer = (properties["Manufacturer"] as? String) ?? "—"
+        snapshot.gaugeModel = (properties["DeviceName"] as? String) ?? ""
 
         if let remaining = intValue(properties["TimeRemaining"]), remaining > 0, remaining < 65_535 {
             snapshot.timeToEmpty = remaining
@@ -164,18 +165,6 @@ final class BatteryStore: ObservableObject {
     var healthPercent: Double? { battery.healthPercent }
 
     var healthCategory: (text: String, level: Int) {
-        guard let health = battery.healthPercent else {
-            return (T("不可用", "Unavailable"), 0)
-        }
-        switch health {
-        case 90...:
-            return (T("优秀", "Excellent"), 3)
-        case 80..<90:
-            return (T("良好", "Good"), 2)
-        case 70..<80:
-            return (T("一般", "Fair"), 1)
-        default:
-            return (T("建议更换", "Service Recommended"), 0)
-        }
+        (battery.healthGrade.title, battery.healthGrade.level)
     }
 }

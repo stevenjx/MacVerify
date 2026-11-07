@@ -20,7 +20,14 @@ struct StorageView: View {
                 VStack(spacing: 0) {
                     SectionHeader(title: T("磁盘", "DRIVE")).padding(.bottom, 8)
                     InfoRow(label: T("磁盘型号", "Drive model"), value: storage.deviceName)
-                    InfoRow(label: T("卷容量", "Volume capacity"), value: "\(system.info.storage.totalGB) GB")
+                    InfoRow(label: T("标称容量", "Marketing capacity"),
+                            value: storage.marketingCapacity == "—" ? "—" : storage.marketingCapacity)
+                    InfoRow(label: T("物理容量", "Physical capacity"),
+                            value: storage.physicalBytes > 0
+                                ? "\(Format.bytes(storage.physicalBytes))（\(storage.physicalBytes) B）"
+                                : T("不可用", "Unavailable"))
+                    InfoRow(label: T("可用卷容量", "Volume capacity"),
+                            value: volumeCapacityText)
                     InfoRow(label: T("SMART 状态", "SMART status"), value: smartText, valueColor: smartColor)
                     if let used = storage.smartPercentageUsed {
                         InfoRow(label: T("寿命消耗", "Wear used"), value: "\(used)%")
@@ -65,7 +72,7 @@ struct StorageView: View {
                         if benchmark.isRunning {
                             SecondaryButton(title: T("停止", "Stop"), icon: "stop.fill") { benchmark.cancel() }
                         } else {
-                            PrimaryButton(title: T("开始测试", "Run test"), icon: "play.fill", enabled: system.info.storage.totalGB > 0) {
+                            PrimaryButton(title: T("开始测试", "Run test"), icon: "play.fill", enabled: system.info.storage.physicalBytes > 0) {
                                 benchmark.start(sizeMB: selectedSize)
                             }
                         }
@@ -109,6 +116,20 @@ struct StorageView: View {
             return health >= 80 ? T("正常（\(health)%）", "OK (\(health)%)") : T("剩余 \(health)%", "\(health)% remaining")
         }
         return T("不可用", "Unavailable")
+    }
+
+    /// 根卷所在 APFS 容器的可用容量。与物理容量区分，避免把 1TB 机器读成 995GB。
+    private var volumeCapacityText: String {
+        guard let values = try? URL(fileURLWithPath: "/").resourceValues(forKeys: [.volumeTotalCapacityKey, .volumeAvailableCapacityKey]),
+              let total = values.volumeTotalCapacity else {
+            return T("不可用", "Unavailable")
+        }
+        let totalText = Format.bytes(UInt64(total))
+        if let free = values.volumeAvailableCapacity {
+            return T("\(totalText)（可用 \(Format.bytes(UInt64(free)))）",
+                     "\(totalText) (\(Format.bytes(UInt64(free))) free)")
+        }
+        return totalText
     }
 
     private var smartColor: Color {

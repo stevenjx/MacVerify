@@ -90,8 +90,8 @@ struct SecurityView: View {
                     SectionHeader(title: T("稳定性记录", "STABILITY"))
                     Spacer()
                     StatusBadge(
-                        text: info.panicLogCount > 0 ? T("\(info.panicLogCount) 条崩溃日志", "\(info.panicLogCount) panic logs") : T("无崩溃日志", "No panic logs"),
-                        level: info.panicLogCount > 0 ? .warning : .ok
+                        text: panicBadgeText,
+                        level: !info.panicScanAvailable ? .neutral : (info.panicLogCount > 0 ? .warning : .ok)
                     )
                 }
 
@@ -111,6 +111,14 @@ struct SecurityView: View {
     private func triState(_ value: Bool?) -> String {
         guard let value = value else { return T("无法读取", "Unavailable") }
         return value ? T("已开启", "Enabled") : T("已关闭", "Disabled")
+    }
+
+    /// 崩溃日志目录可能因权限不可读。不可读 ≠ 没有崩溃，必须区分。
+    private var panicBadgeText: String {
+        guard info.panicScanAvailable else { return T("无法读取", "Unavailable") }
+        return info.panicLogCount > 0
+            ? T("\(info.panicLogCount) 条崩溃日志", "\(info.panicLogCount) panic logs")
+            : T("无崩溃日志", "No panic logs")
     }
 
     private func securityRow(title: String, value: String, level: BadgeLevel, detail: String, isLast: Bool = false) -> some View {

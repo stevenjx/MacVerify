@@ -309,6 +309,14 @@ struct InputTestView: View {
             pressedCodes.remove(code)
             lastEventText = "keyCode \(code) · up"
         case .flagsChanged:
+            // caps lock 是"切换键"：.capsLock 表示锁定状态而不是按下状态。
+            // 按状态判断会让该键永远检测不到，这里按每次事件计数，不做按下高亮。
+            if code == 57 {
+                bumpCount(code)
+                lastEventText = "keyCode \(code) · caps lock · \(event.modifierFlags.contains(.capsLock) ? "on" : "off")"
+                applyPressedState()
+                return
+            }
             let isDown = modifierIsDown(code: code, flags: event.modifierFlags)
             if isDown {
                 bumpCount(code)
@@ -330,6 +338,8 @@ struct InputTestView: View {
         case 58, 61: return flags.contains(.option)
         case 55, 54: return flags.contains(.command)
         case 63: return flags.contains(.function)
+        // caps lock 按下时 .capsLock 为 true，松开后仍保持锁定状态（true），
+        // 所以这里不能用标志位判断按下，交给 handle() 里的翻转逻辑。
         default: return false
         }
     }

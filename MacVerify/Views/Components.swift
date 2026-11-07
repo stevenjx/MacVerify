@@ -321,9 +321,11 @@ struct SecondaryButton: View {
 // MARK: - 格式化
 
 enum Format {
+    /// 使用十进制单位（1 GB = 10^9 字节），与磁盘厂商标称、finder/diskutil 一致。
+    /// 原先的 .binary 会把 738GB 显示成 687GB，与系统其它位置对不上。
     static func bytes(_ value: UInt64) -> String {
         let formatter = ByteCountFormatter()
-        formatter.countStyle = .binary
+        formatter.countStyle = .decimal
         formatter.allowedUnits = [.useGB, .useTB]
         return formatter.string(fromByteCount: Int64(value))
     }
@@ -331,7 +333,8 @@ enum Format {
     static func gb(_ value: Int) -> String { "\(value) GB" }
 
     static func speed(_ value: Double) -> String {
-        value >= 1000 ? String(format: "%.2f GB/s", value / 1024) : String(format: "%.0f MB/s", value)
+        // 与磁盘容量统一使用十进制（1 GB/s = 1000 MB/s）
+        value >= 1000 ? String(format: "%.2f GB/s", value / 1000) : String(format: "%.0f MB/s", value)
     }
 
     /// 按应用内语言格式化日期，避免与界面语言不一致

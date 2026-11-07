@@ -30,10 +30,22 @@ final class SystemInfoStore: ObservableObject {
 
     // MARK: - 采集
 
+    /// 同步采集一次。供报告导出与命令行自检使用。
+    func collectNow() -> MacSystemInfo {
+        collect()
+    }
+
     private func collect() -> MacSystemInfo {
         var data = MacSystemInfo()
 
-        data.modelIdentifier = Sysctl.string("hw.model") ?? "—"
+        // 一次 system_profiler -json 同时拿到机型编号、序列号、激活锁、芯片、GPU 核心数。
+        // 用 JSON 而不是文本：文本会随系统语言本地化（中文系统输出「激活锁状态：已停用」），
+        // 按英文关键字匹配会在中文环境下静默失败。
+        let hardware = Self.hardwareOverview()
+        let displays = Self.displayOverview()
+
+        data.modelIdentifier = hardware["machine_model"] as? String
+            ?? Sysctl.string("hw.model") ?? "—"
         data.hardwareModel = data.modelIdentifier
         if let entry = MacModelCatalog.entry(for: data.modelIdentifier) {
             data.modelName = entry.name
@@ -43,18 +55,28 @@ final class SystemInfoStore: ObservableObject {
             data.modelName = MacModelCatalog.fallbackName(for: data.modelIdentifier)
             data.marketingName = data.modelName
         }
+        // 系统报告里的 "Model Number"(如 Z17G000NALL/A) 是 Part Number，反映 CTO 配置；
+        // 机型表里的 A2779 是机壳型号。两者含义不同，不能互相覆盖。
+        data.partNumber = (hardware["model_number"] as? String) ?? ""
 
-        data.serialNumber = platformSerialNumber() ?? "—"
+        let reportedSerial = hardware["serial_number"] as? String
+        let iokitSerial = platformSerialNumber()
+        data.serialFromIOKit = iokitSerial
+        data.serialNumber = reportedSerial ?? iokitSerial ?? "—"
         data.serialValid = isValidSerial(data.serialNumber)
 
-        let brand = Sysctl.string("machdep.cpu.brand_string") ?? ""
+        let brand = (hardware["chip_type"] as? String) ?? Sysctl.string("machdep.cpu.brand_string") ?? ""
         data.chipName = brand.isEmpty ? "—" : brand
         data.isAppleSilicon = brand.hasPrefix("Apple")
+        data.modelFromSysctl = Sysctl.string("hw.model")
+        data.chipFromSysctl = Sysctl.string("machdep.cpu.brand_string")
 
         #if arch(arm64)
-        data.architecture = "Apple Silicon"
+        data.architecture = data.isAppleSilicon ? "Apple Silicon" : "Intel"
         #else
-        data.architecture = "Intel"
+        // 在 Apple Silicon 上以 Rosetta 运行 x86_64 切片时，arch(arm64) 为 false，
+        // 必须按芯片名判断，否则会把 M 系列误报成 Intel。
+        data.architecture = data.isAppleSilicon ? "Apple Silicon (Rosetta)" : "Intel"
         #endif
 
         data.logicalCores = Sysctl.int("hw.logicalcpu") ?? ProcessInfo.processInfo.processorCount
@@ -66,10 +88,12 @@ final class SystemInfoStore: ObservableObject {
         }
 
         let memoryBytes = Sysctl.int("hw.memsize") ?? 0
+        data.memoryBytesFromSysctl = memoryBytes
         data.memoryGB = Int((Double(memoryBytes) / 1_073_741_824).rounded())
         data.memoryDescription = data.memoryGB > 0 ? "\(data.memoryGB) GB" : "—"
 
-        data.gpuName = gpuName(fallback: data.chipName)
+        data.gpuName = Self.gpuName(displayReport: displays, fallback: data.chipName)
+        data.gpuCores = Self.gpuCores(displayReport: displays)
         data.isLowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
         data.uptime = ProcessInfo.processInfo.systemUptime
         data.systemUptimeText = Self.uptimeText(data.uptime)
@@ -78,12 +102,11 @@ final class SystemInfoStore: ObservableObject {
         data.osVersion = "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)"
         data.osBuild = Sysctl.string("kern.osversion") ?? "—"
 
-        data.storage.totalGB = Int((Double(volumeCapacity()) / 1_000_000_000).rounded())
-        data.display = collectDisplay()
-        data.storage = collectStorage(base: data.storage)
+        data.display = collectDisplay(report: displays)
+        data.storage = collectStorage(base: StorageInfo())
 
         // 安全与合规状态（调用系统工具，只读）
-        data.activationLock = activationLockStatus()
+        data.activationLock = Self.activationLockStatus(from: hardware)
         data.fileVault = Self.fileVaultStatus()
         data.sipEnabled = Self.sipStatus()
         data.gatekeeperEnabled = Self.gatekeeperStatus()
@@ -91,14 +114,47 @@ final class SystemInfoStore: ObservableObject {
         data.remoteManagement = Self.remoteManagementStatus()
 
         let panics = Self.panicLogs()
-        data.panicLogCount = panics.count
-        data.lastPanicDate = panics.last
+        data.panicScanAvailable = panics.readable
+        data.panicLogCount = panics.dates.count
+        data.lastPanicDate = panics.dates.last
 
-        if data.storage.deviceName.isEmpty || data.storage.deviceName == "—" {
-            data.storage.deviceName = Self.rootDiskName()
-        }
         data.scannedAt = Date()
         return data
+    }
+
+    // MARK: - system_profiler JSON
+
+    private static func jsonReport(_ dataType: String) -> [[String: Any]] {
+        guard let output = Shell.run("/usr/sbin/system_profiler", ["-json", dataType], timeout: 8),
+              let data = output.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let array = root[dataType] as? [[String: Any]] else { return [] }
+        return array
+    }
+
+    /// SPHardwareDataType 只有一个元素
+    private static func hardwareOverview() -> [String: Any] {
+        jsonReport("SPHardwareDataType").first ?? [:]
+    }
+
+    /// SPDisplaysDataType：可能是集成 GPU，也可能有外接显卡（多个元素）
+    private static func displayOverview() -> [[String: Any]] {
+        jsonReport("SPDisplaysDataType")
+    }
+
+    private static func gpuName(displayReport: [[String: Any]], fallback: String) -> String {
+        for entry in displayReport {
+            if let model = entry["sppci_model"] as? String, !model.isEmpty { return model }
+        }
+        return fallback.isEmpty || fallback == "—" ? "—" : fallback
+    }
+
+    private static func gpuCores(displayReport: [[String: Any]]) -> Int {
+        for entry in displayReport {
+            if let raw = entry["sppci_cores"] as? String, let cores = Int(raw) { return cores }
+            if let cores = entry["sppci_cores"] as? Int { return cores }
+        }
+        return 0
     }
 
     // MARK: - 序列号 / 内存
@@ -113,44 +169,17 @@ final class SystemInfoStore: ObservableObject {
     }
 
     private func isValidSerial(_ serial: String) -> Bool {
-        let length = serial.trimmingCharacters(in: .whitespacesAndNewlines).count
-        return length == 10 || length == 12
-    }
-
-    private func volumeCapacity() -> Int64 {
-        if let values = try? URL(fileURLWithPath: "/").resourceValues(forKeys: [.volumeTotalCapacityKey]),
-           let capacity = values.volumeTotalCapacity {
-            return Int64(capacity)
-        }
-        if let attributes = try? FileManager.default.attributesOfFileSystem(forPath: "/"),
-           let size = attributes[.systemSize] as? NSNumber {
-            return size.int64Value
-        }
-        return 0
-    }
-
-    // MARK: - GPU
-
-    private func gpuName(fallback: String) -> String {
-        var names: [String] = []
-        IOKit.forEachService(matching: "IOPCIDevice") { service in
-            guard let modelData = IOKit.property(service, "model") as? Data,
-                  let raw = String(data: modelData, encoding: .ascii) else { return }
-            let name = raw.replacingOccurrences(of: "\0", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !name.isEmpty else { return }
-            let upper = name.uppercased()
-            let isGraphics = upper.contains("RADEON") || upper.contains("INTEL") || upper.contains("AMD") || upper.contains("NVIDIA")
-            if isGraphics && !names.contains(name) { names.append(name) }
-        }
-        if names.isEmpty {
-            return fallback.isEmpty || fallback == "—" ? "—" : fallback
-        }
-        return names.joined(separator: " + ")
+        // Apple 序列号历史上出现过 10 / 11 / 12 位三种长度（2021 年前的 11 位很常见），
+        // 只校验长度会误报，因此这里只排除明显异常的空值与非字母数字。
+        let trimmed = serial.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (10...12).contains(trimmed.count) else { return false }
+        let allowed = CharacterSet.alphanumerics
+        return trimmed.unicodeScalars.allSatisfy { allowed.contains($0) }
     }
 
     // MARK: - 显示器
 
-    private func collectDisplay() -> DisplayInfo {
+    private func collectDisplay(report: [[String: Any]]) -> DisplayInfo {
         var display = DisplayInfo()
         let mainID = CGMainDisplayID()
         display.isBuiltin = CGDisplayIsBuiltin(mainID) != 0
@@ -161,6 +190,7 @@ final class SystemInfoStore: ObservableObject {
         display.pixelHeight = CGDisplayPixelsHigh(mainID)
 
         // 取所有可用模式中的最大像素尺寸作为面板原生分辨率
+        // （当前模式通常是缩放后的逻辑分辨率，不能当原生值）
         if let modes = CGDisplayCopyAllDisplayModes(mainID, nil) as? [CGDisplayMode] {
             var native = (width: 0, height: 0)
             for mode in modes where mode.pixelWidth * mode.pixelHeight > native.width * native.height {
@@ -195,7 +225,85 @@ final class SystemInfoStore: ObservableObject {
         }
 
         display.edid = EDIDReader.read(preferredVendor: display.vendorID, model: display.modelID)
+        display.panel = Self.panelIdentity(from: report)
         return display
+    }
+
+    /// 从 SPDisplaysDataType 里取当前主显示器的面板身份。
+    /// Apple Silicon 不公开 EDID 原始块，但 product-id / vendor-id / serial-number 仍然可用，
+    /// 是判断「面板是否被换过」最直接的依据。
+    private static func panelIdentity(from report: [[String: Any]]) -> PanelIdentity? {
+        var fallback: PanelIdentity?
+        for gpu in report {
+            guard let screens = gpu["spdisplays_ndrvs"] as? [[String: Any]] else { continue }
+            for screen in screens {
+                guard let identity = parsePanel(screen) else { continue }
+                // 优先返回内建屏
+                if screen["spdisplays_connection_type"] as? String == "spdisplays_internal" {
+                    return identity
+                }
+                if fallback == nil { fallback = identity }
+            }
+        }
+        return fallback
+    }
+
+    private static func parsePanel(_ screen: [String: Any]) -> PanelIdentity? {
+        var identity = PanelIdentity()
+        var hasAny = false
+
+        if let vendor = screen["_spdisplays_display-vendor-id"] as? String {
+            // 该字段是十六进制字符串（例："610" 表示 0x610 = Apple）
+            if let value = Int(vendor, radix: 16) { identity.vendorID = value; hasAny = true }
+        }
+        if let product = screen["_spdisplays_display-product-id"] as? String {
+            if let value = Int(product, radix: 16) { identity.productID = value; hasAny = true }
+        }
+        if let serial = screen["_spdisplays_display-serial-number"] as? String {
+            if let value = UInt64(serial, radix: 16) { identity.serialNumber = value; hasAny = true }
+        }
+        if let week = screen["_spdisplays_display-week"] as? String, let value = Int(week) {
+            identity.week = value
+        }
+        if let year = screen["_spdisplays_display-year"] as? String, let value = Int(year) {
+            identity.year = value
+        }
+        identity.typeName = Self.decodeDisplayType(screen["spdisplays_display_type"] as? String)
+        identity.connectionType = Self.decodeConnection(screen["spdisplays_connection_type"] as? String)
+        return hasAny ? identity : nil
+    }
+
+    /// 系统报告里的枚举值是本地化无关的固定 token
+    private static func decodeDisplayType(_ token: String?) -> String {
+        guard let token = token else { return "" }
+        let table: [String: String] = [
+            "spdisplays_built-in-liquid-retina-xdr": "Liquid Retina XDR",
+            "spdisplays_built-in-retina": "Retina",
+            "spdisplays_built-in": "内建",
+            "spdisplays_lcd": "LCD",
+            "spdisplays_led": "LED",
+            "spdisplays_crt": "CRT",
+            "spdisplays_projector": "投影"
+        ]
+        if let name = table[token] { return name }
+        if token.hasPrefix("spdisplays_") {
+            return token.replacingOccurrences(of: "spdisplays_", with: "")
+                .replacingOccurrences(of: "_", with: " ")
+                .capitalized
+        }
+        return token
+    }
+
+    private static func decodeConnection(_ token: String?) -> String {
+        switch token {
+        case "spdisplays_internal": return T("内建", "Internal")
+        case "spdisplays_displayport": return "DisplayPort"
+        case "spdisplays_hdmi": return "HDMI"
+        case "spdisplays_thunderbolt": return "Thunderbolt"
+        case "spdisplays_vga": return "VGA"
+        case "spdisplays_dvi": return "DVI"
+        default: return token?.replacingOccurrences(of: "spdisplays_", with: "") ?? ""
+        }
     }
 
     // MARK: - 存储
@@ -203,6 +311,24 @@ final class SystemInfoStore: ObservableObject {
     private func collectStorage(base: StorageInfo) -> StorageInfo {
         var storage = base
         let rootDisk = Self.rootDiskBSDName()
+
+        // 物理介质容量 / 名称。必须走物理盘（disk0），而不是根卷（disk3）：
+        // 根卷 994.7GB、物理盘 1000.6GB，用根卷会把 1TB 机器显示成 995GB。
+        if !rootDisk.isEmpty {
+            let physical = Self.physicalStore(forDisk: rootDisk) ?? rootDisk
+            if let info = Self.diskutilInfo(physical) {
+                if let size = info["TotalSize"] as? Int64, size > 0 {
+                    storage.physicalBytes = UInt64(size)
+                    storage.diskSizeFromDiskutil = UInt64(size)
+                } else if let size = info["Size"] as? Int64, size > 0 {
+                    storage.physicalBytes = UInt64(size)
+                    storage.diskSizeFromDiskutil = UInt64(size)
+                }
+                let name = (info["MediaName"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                if !name.isEmpty { storage.deviceName = name }
+            }
+            storage.diskSizeFromIOMedia = Self.ioMediaSize(forDisk: physical)
+        }
 
         // 从整盘 IOMedia 向上查找持有统计数据的节点（Apple Silicon 上为 APFS 容器，Intel 上可能为 IOBlockStorageDriver）
         let media = rootDisk.isEmpty ? 0 : IOServiceGetMatchingService(0, IOBSDNameMatching(0, 0, rootDisk))
@@ -212,7 +338,8 @@ final class SystemInfoStore: ObservableObject {
             for _ in 0..<6 {
                 if let statistics = IOKit.property(current, "Statistics") as? [String: Any],
                    let read = statistics["Bytes (Read)"] as? UInt64,
-                   let written = statistics["Bytes (Write)"] as? UInt64 {
+                   let written = statistics["Bytes (Write)"] as? UInt64,
+                   read > 0 || written > 0 {
                     storage.readBytes = read
                     storage.writtenBytes = written
                     storage.statisticsAvailable = true
@@ -260,14 +387,41 @@ final class SystemInfoStore: ObservableObject {
             break
         }
 
-        // 通过 diskutil 补充介质名称（Apple 原厂 SSD 会显示为 APPLE SSD APxxxx）
-        if !rootDisk.isEmpty, storage.deviceName == rootDisk || storage.deviceName == "—" || storage.deviceName.isEmpty {
+        // 介质名兜底：物理盘取不到时再顺着 APFS 物理存储找一次
+        if storage.deviceName == "—" || storage.deviceName.isEmpty {
             if let media = Self.mediaName(forDisk: rootDisk) {
                 storage.deviceName = media
             }
         }
 
+        // 物理容量兜底：diskutil 完全不可用时退回 IOMedia Size
+        if storage.physicalBytes == 0 {
+            storage.physicalBytes = Self.ioMediaSize(forDisk: Self.physicalStore(forDisk: rootDisk) ?? rootDisk)
+        }
+
         return storage
+    }
+
+    /// 根卷（disk3）→ 物理存储（disk0）。APFS 容器必须顺着这个映射才能拿到真实介质。
+    private static func physicalStore(forDisk bsd: String) -> String? {
+        guard let info = diskutilInfo(bsd),
+              let stores = info["APFSPhysicalStores"] as? [[String: Any]],
+              let store = stores.first?["APFSPhysicalStore"] as? String else { return nil }
+        var physical = store
+        if let range = physical.range(of: "s\\d", options: .regularExpression) {
+            physical = String(physical[..<range.lowerBound])
+        }
+        return physical.isEmpty ? nil : physical
+    }
+
+    private static func ioMediaSize(forDisk bsd: String) -> UInt64 {
+        guard !bsd.isEmpty else { return 0 }
+        let service = IOServiceGetMatchingService(0, IOBSDNameMatching(0, 0, bsd))
+        guard service != 0 else { return 0 }
+        defer { IOObjectRelease(service) }
+        if let size = IOKit.property(service, "Size") as? UInt64 { return size }
+        if let size = IOKit.property(service, "Size") as? Int64 { return UInt64(max(0, size)) }
+        return 0
     }
 
     /// 读取真实介质名称；APFS 容器需要顺着物理存储找到底层磁盘
@@ -346,13 +500,12 @@ final class SystemInfoStore: ObservableObject {
 
     // MARK: - 安全状态
 
-    private func activationLockStatus() -> Bool? {
-        guard let output = Shell.run("/usr/sbin/system_profiler", ["SPHardwareDataType"], timeout: 6) else {
-            return nil
-        }
-        let lower = output.lowercased()
-        if lower.contains("activation lock status: enabled") { return true }
-        if lower.contains("activation lock status: disabled") { return false }
+    /// 激活锁状态来自 SPHardwareDataType 的稳定 token：
+    /// "activation_lock_enabled" / "activation_lock_disabled" / "activation_lock_unknown"
+    private static func activationLockStatus(from hardware: [String: Any]) -> Bool? {
+        guard let token = hardware["activation_lock_status"] as? String else { return nil }
+        if token.hasSuffix("_enabled") { return true }
+        if token.hasSuffix("_disabled") { return false }
         return nil
     }
 
@@ -391,29 +544,54 @@ final class SystemInfoStore: ObservableObject {
         return nil
     }
 
+    /// 远程管理描述文件是否存在。文件不存在是确定结论（false），不是"读不到"。
     private static func remoteManagementStatus() -> Bool? {
         let path = "/Library/Managed Preferences/com.apple.RemoteManagement.plist"
-        if FileManager.default.fileExists(atPath: path) { return true }
-        return nil
+        return FileManager.default.fileExists(atPath: path)
     }
 
-    private static func panicLogs() -> [Date] {
+    /// 内核崩溃（panic）记录。
+    /// - macOS 12 及更早：`*.panic` 文件
+    /// - macOS 13+：内核崩溃改为 `*.ips`，需判断 `bug_type` 是否为 210
+    /// 额外扫描 Retired/ 子目录（系统会把旧报告移进去）。
+    /// 返回 readable 用于区分「确实没有崩溃」与「目录读不到」——
+    /// 后者绝不能显示成「无记录」。
+    private static func panicLogs() -> (dates: [Date], readable: Bool) {
         var dates: [Date] = []
-        let directories = [
+        var readable = false
+
+        let roots = [
             "/Library/Logs/DiagnosticReports",
             (NSHomeDirectory() as NSString).appendingPathComponent("Library/Logs/DiagnosticReports")
         ]
-        for directory in directories {
-            guard let files = try? FileManager.default.contentsOfDirectory(atPath: directory) else { continue }
-            for file in files where file.hasSuffix(".panic") || file.contains(".panic.") {
-                let path = (directory as NSString).appendingPathComponent(file)
-                if let attributes = try? FileManager.default.attributesOfItem(atPath: path),
-                   let date = attributes[.creationDate] as? Date {
-                    dates.append(date)
+
+        for root in roots {
+            for directory in [root, (root as NSString).appendingPathComponent("Retired")] {
+                guard let files = try? FileManager.default.contentsOfDirectory(atPath: directory) else { continue }
+                readable = true
+                for file in files {
+                    let path = (directory as NSString).appendingPathComponent(file)
+                    let isPanicFile = file.hasSuffix(".panic")
+                    let isIPS = file.hasSuffix(".ips")
+                    guard isPanicFile || isIPS else { continue }
+                    if isIPS, !Self.isKernelPanicIPS(path) { continue }
+                    if let attributes = try? FileManager.default.attributesOfItem(atPath: path),
+                       let date = attributes[.creationDate] as? Date {
+                        dates.append(date)
+                    }
                 }
             }
         }
-        return dates.sorted()
+        return (dates.sorted(), readable)
+    }
+
+    /// .ips 文件的前几 KB 是 JSON 头，内核崩溃的 bug_type 为 210
+    private static func isKernelPanicIPS(_ path: String) -> Bool {
+        guard let handle = FileHandle(forReadingAtPath: path) else { return false }
+        defer { try? handle.close() }
+        guard let head = try? handle.read(upToCount: 4096),
+              let text = String(data: head, encoding: .utf8) else { return false }
+        return text.contains("\"bug_type\":\"210\"") || text.contains("\"bug_type\" : \"210\"")
     }
 
     private static func uptimeText(_ interval: TimeInterval) -> String {
@@ -454,24 +632,29 @@ enum EDIDReader {
         let bytes = [UInt8](data)
         guard bytes.count >= 128, bytes[0] == 0x00, bytes[1] == 0xFF, bytes[2] == 0xFF else { return nil }
 
+        // 校验和：前 128 字节之和须为 0（mod 256）。不校验会把随机数据当面板信息显示。
+        let checksum = bytes[0..<128].reduce(0) { ($0 + Int($1)) & 0xFF }
+        guard checksum == 0 else { return nil }
+
         let manufacturerID = (Int(bytes[8]) << 8) | Int(bytes[9])
-        let letters = [
-            Character(UnicodeScalar(((manufacturerID >> 10) & 0x1F) + 64)!),
-            Character(UnicodeScalar(((manufacturerID >> 5) & 0x1F) + 64)!),
-            Character(UnicodeScalar((manufacturerID & 0x1F) + 64)!)
-        ]
+        guard let a = UnicodeScalar(((manufacturerID >> 10) & 0x1F) + 64),
+              let b = UnicodeScalar(((manufacturerID >> 5) & 0x1F) + 64),
+              let c = UnicodeScalar((manufacturerID & 0x1F) + 64) else { return nil }
+        let letters = String(Character(a)) + String(Character(b)) + String(Character(c))
+        guard !letters.contains("@") || manufacturerID != 0 else { return nil }
 
         let product = Int(bytes[10]) | (Int(bytes[11]) << 8)
         let serial = UInt32(bytes[12]) | (UInt32(bytes[13]) << 8) | (UInt32(bytes[14]) << 16) | (UInt32(bytes[15]) << 24)
         let week = Int(bytes[16])
-        let year = Int(bytes[17]) + 1990
+        let yearByte = Int(bytes[17])
 
         return EDIDInfo(
             manufacturerID: manufacturerID,
-            manufacturerName: String(letters),
+            manufacturerName: letters,
             productCode: product,
             serialNumber: serial,
-            year: year,
+            // year 字节为 0 表示未写入生产日期，不能算成 1990 年
+            year: yearByte > 0 ? yearByte + 1990 : 0,
             week: week
         )
     }

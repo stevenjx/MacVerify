@@ -188,6 +188,8 @@ final class BatteryLoadTest: ObservableObject {
     }
 
     private func finish() {
+        // elapsed 是在主线程异步更新的，这里不能依赖它，否则时长会偏小
+        let measuredDuration = startDate.map { Date().timeIntervalSince($0) } ?? elapsed
         stop(userInitiated: false)
 
         let snapshot = batteryProvider()
@@ -228,25 +230,31 @@ final class BatteryLoadTest: ObservableObject {
             ))
         }
 
-        // 循环次数与健康度一致性
+        // 循环次数与容量一致性。
+        // 注意：Apple 只承诺「1000 次循环后保持 80% 容量」，并没有给出逐循环的衰减曲线，
+        // 因此不能按 每循环 0.03% 之类的线性公式去推断"理论容量"再判对错——那是编造出来的判据。
+        // 这里只做两件有依据的事：
+        //   1) 健康度低于 80% 时按 Apple 的服务建议口径标记；
+        //   2) 循环次数极低但容量已明显衰减，提示存在更换电芯/改写数据的可能。
         let weight = 20.0
         totalWeight += weight
         if snapshot.cycleCount > 0 {
-            let expectedHealth = 100 - Double(snapshot.cycleCount) * 0.03
-            let actual = snapshot.healthPercent ?? expectedHealth
-            let divergence = expectedHealth - actual
-            if snapshot.cycleCount < 30 && actual > 99 {
+            if snapshot.cycleCount < 50, let health = snapshot.healthPercent, health < 90 {
                 weightedScore += weight * 0.5
                 findings.append(BatteryAuditFinding(
-                    title: T("循环次数 \(snapshot.cycleCount) 次", "\(snapshot.cycleCount) cycles"),
-                    detail: T("循环极低但容量接近满值，建议核对电池序列号与出厂日期", "Very low cycles with near-full capacity — verify serial and manufacture date"),
+                    title: T("循环次数 \(snapshot.cycleCount) 次，健康度 \(String(format: "%.1f", health))%",
+                             "\(snapshot.cycleCount) cycles, health \(String(format: "%.1f", health))%"),
+                    detail: T("循环次数很低但容量已明显衰减，建议核对电池序列号与出厂日期，确认是否更换过电芯。",
+                              "Very low cycles with noticeable capacity loss — verify the battery serial and manufacture date."),
                     status: .warning
                 ))
-            } else if divergence > 12 {
+            } else if let health = snapshot.healthPercent, health < 80 {
                 weightedScore += weight * 0.5
                 findings.append(BatteryAuditFinding(
-                    title: T("循环次数 \(snapshot.cycleCount) 次", "\(snapshot.cycleCount) cycles"),
-                    detail: T("容量衰减明显快于循环次数，可能存在高温使用史", "Capacity degraded faster than cycle count suggests"),
+                    title: T("循环次数 \(snapshot.cycleCount) / 设计 \(snapshot.designCycleCount) 次",
+                             "\(snapshot.cycleCount) of \(snapshot.designCycleCount) design cycles"),
+                    detail: T("健康度低于 80%，Apple 对低于该值的电池建议检修。",
+                              "Health is below 80%, the threshold Apple uses to recommend service."),
                     status: .warning
                 ))
             } else {
@@ -254,7 +262,8 @@ final class BatteryLoadTest: ObservableObject {
                 findings.append(BatteryAuditFinding(
                     title: T("循环次数 \(snapshot.cycleCount) / 设计 \(snapshot.designCycleCount) 次",
                              "\(snapshot.cycleCount) of \(snapshot.designCycleCount) design cycles"),
-                    detail: T("循环与容量衰减基本吻合", "Cycle count is consistent with capacity loss"),
+                    detail: T("Apple 的设计目标是 1000 次循环后仍保持 80% 容量。",
+                              "Apple designs for 80% capacity after 1000 cycles."),
                     status: .passed
                 ))
             }
@@ -267,9 +276,11 @@ final class BatteryLoadTest: ObservableObject {
             ))
         }
 
-        // 负载压降：仅在真实放电时有效
+        // 负载期间电压变化。
+        // 重要口径：这 10 分钟里电量本身在下降，端电压也会随 SOC 下降，
+        // 所以该值 ≠ 纯内阻压降。文案必须说明，不能包装成"内阻"。
         let sagWeight = 25.0
-        let wasDischarging = !snapshot.isPluggedIn || batteryProvider().amperage < -0.05
+        let wasDischarging = !snapshot.isPluggedIn && snapshot.amperage < -0.05
         let validSag = wasDischarging && startPercent < 99 && (drop ?? 0) > 0.005
         if let drop = drop, validSag {
             totalWeight += sagWeight
@@ -281,17 +292,18 @@ final class BatteryLoadTest: ObservableObject {
                 weightedScore += sagWeight * 0.3
             }
             findings.append(BatteryAuditFinding(
-                title: T("负载压降 \(String(format: "%.2f", drop)) V", "Voltage sag \(String(format: "%.2f", drop)) V"),
-                detail: T("从 \(String(format: "%.2f", startVoltage))V 降至 \(String(format: "%.2f", lastVoltage))V，数值越小说明内阻越低",
-                          "From \(String(format: "%.2f", startVoltage))V to \(String(format: "%.2f", lastVoltage))V — smaller is better"),
+                title: T("负载期间电压下降 \(String(format: "%.2f", drop)) V",
+                         "Voltage drop under load \(String(format: "%.2f", drop)) V"),
+                detail: T("从 \(String(format: "%.2f", startVoltage))V 降至 \(String(format: "%.2f", lastVoltage))V。含电量下降带来的正常压降，数值偏大不必然代表电池异常。",
+                          "From \(String(format: "%.2f", startVoltage))V to \(String(format: "%.2f", lastVoltage))V. This includes the normal drop from falling state of charge — a large value is not proof of a fault."),
                 status: drop <= 0.35 ? .passed : (drop <= 0.9 ? .warning : .failed)
             ))
         } else {
             findings.append(BatteryAuditFinding(
-                title: T("压降未测量", "Voltage sag not measured"),
+                title: T("压降未测量", "Voltage drop not measured"),
                 detail: !wasDischarging
-                    ? T("测试期间接着电源，无法观察放电压降。拔掉电源后重测可得到该项数据。",
-                        "The Mac stayed on AC power, so sag could not be observed. Re-run on battery.")
+                    ? T("测试期间接着电源或电流不足以判定放电，无法观察放电压降。拔掉电源后重测可得到该项数据。",
+                        "The Mac stayed on AC power or the discharge current was too low. Re-run on battery.")
                     : T("采样期间电压无变化，数据不足。", "No voltage change during sampling."),
                 status: .info
             ))
@@ -331,7 +343,7 @@ final class BatteryLoadTest: ObservableObject {
             cycleCount: snapshot.cycleCount,
             voltageDrop: drop,
             temperatureRise: rise,
-            duration: elapsed,
+            duration: measuredDuration,
             findings: findings
         )
 

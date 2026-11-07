@@ -88,8 +88,11 @@ struct AboutView: View {
                 SecondaryButton(title: "GitHub", icon: "link") {
                     if let url = URL(string: projectURL) { NSWorkspace.shared.open(url) }
                 }
-                SecondaryButton(title: T("复制系统报告", "Copy system report"), icon: "doc.on.doc") {
-                    copyReport()
+                SecondaryButton(title: T("导出质检报告", "Export report"), icon: "square.and.arrow.down") {
+                    ReportService.save(info: system.info, battery: BatteryStore.readBattery())
+                }
+                SecondaryButton(title: T("复制报告", "Copy report"), icon: "doc.on.doc") {
+                    ReportService.copyMarkdown(info: system.info, battery: BatteryStore.readBattery())
                 }
                 Spacer()
                 Text(T("检测时间 \(Format.dateTime(system.info.scannedAt))", "Scanned \(Format.dateTime(system.info.scannedAt))"))
@@ -100,25 +103,7 @@ struct AboutView: View {
     }
 
     private func copyReport() {
-        let info = system.info
-        let report = """
-        MacVerify \(BuildInfo.version) (\(BuildInfo.build))
-        Model: \(info.modelDisplayName) [\(info.modelIdentifier)]
-        Serial: \(info.serialNumber)
-        Chip: \(info.chipName) · \(info.architecture)
-        Memory: \(info.memoryGB) GB
-        Storage: \(info.storage.totalGB) GB · \(info.storage.deviceName)
-        macOS: \(info.osVersion) (\(info.osBuild))
-        Activation Lock: \(String(describing: info.activationLock))
-        FileVault: \(String(describing: info.fileVault))
-        SIP: \(String(describing: info.sipEnabled))
-        MDM: \(String(describing: info.mdmEnrolled))
-        Panics: \(info.panicLogCount)
-        Display: \(info.display.inchText) \(info.display.resolutionText) \(info.display.name)
-        """
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(report, forType: .string)
+        ReportService.copyMarkdown(info: system.info, battery: BatteryStore.readBattery())
     }
 }
 

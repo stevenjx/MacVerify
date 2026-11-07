@@ -54,28 +54,44 @@ struct DisplayView: View {
             Card {
                 VStack(spacing: 0) {
                     HStack {
-                        SectionHeader(title: T("EDID 指纹", "EDID FINGERPRINT"))
+                        SectionHeader(title: T("面板身份", "PANEL IDENTITY"))
                         Spacer()
-                        if display.edid == nil {
-                            StatusBadge(text: T("该机型未提供 EDID", "EDID unavailable"), level: .neutral)
+                        if display.edid == nil && display.panel == nil {
+                            StatusBadge(text: T("无法读取", "Unavailable"), level: .neutral)
                         }
                     }
                     .padding(.bottom, 8)
 
-                    if display.edid == nil {
+                    if let panel = display.panel {
+                        InfoRow(label: T("面板厂商", "Panel vendor"), value: panel.vendorText, monospaced: true)
+                        InfoRow(label: T("面板型号", "Panel product"), value: panel.productText, monospaced: true)
+                        InfoRow(label: T("面板序列号", "Panel serial"), value: panel.serialText, monospaced: true)
+                        if !panel.typeName.isEmpty {
+                            InfoRow(label: T("面板类型", "Panel type"), value: panel.typeName)
+                        }
+                        InfoRow(label: T("连接方式", "Connection"), value: panel.connectionType.isEmpty ? "—" : panel.connectionType)
+                        InfoRow(label: T("生产批次", "Production"), value: panel.productionText, monospaced: true)
+                        InfoRow(label: T("显示器 ID", "Display ID"),
+                                value: String(format: "0x%04X / 0x%04X", display.vendorID, display.modelID),
+                                monospaced: true, isLast: true)
+                    } else if display.edid != nil {
+                        InfoRow(label: T("面板厂商代码", "Manufacturer ID"), value: display.edidManufacturerText, monospaced: true)
+                        InfoRow(label: T("面板型号代码", "Product code"), value: String(format: "0x%04X", display.edid!.productCode), monospaced: true)
+                        InfoRow(label: T("面板序列号", "Panel serial"), value: display.edidSerialText, monospaced: true)
+                        InfoRow(label: T("生产批次", "Production"), value: display.edidProductionText, monospaced: true)
+                        InfoRow(label: T("显示器 ID", "Display ID"),
+                                value: String(format: "0x%04X / 0x%04X", display.vendorID, display.modelID),
+                                monospaced: true, isLast: true)
+                    } else {
                         NoticeBar(
-                            text: T("该机型未向用户态提供 EDID。Apple Silicon 机型普遍如此，无法据此判断面板来源，请结合外观与显示效果检查。",
-                                   "This model does not expose EDID to user space, which is typical for Apple Silicon. Judge the panel by visual inspection instead."),
+                            text: T("本机未向用户态提供面板身份信息，无法据此判断面板来源，请结合外观与显示效果检查。",
+                                   "Panel identity is not exposed on this Mac — judge the panel by visual inspection instead."),
                             level: .neutral
                         )
                         .padding(.bottom, 6)
-                        InfoRow(label: T("显示器 ID", "Display ID"), value: String(format: "V%04X / M%04X", display.vendorID, display.modelID), monospaced: true, isLast: true)
-                    } else {
-                        InfoRow(label: T("面板厂商代码", "Manufacturer ID"), value: display.edidManufacturerText, monospaced: true)
-                        InfoRow(label: T("面板型号代码", "Product code"), value: display.edid == nil ? "—" : String(format: "0x%04X", display.edid!.productCode), monospaced: true)
-                        InfoRow(label: T("面板序列号", "Panel serial"), value: display.edidSerialText, monospaced: true)
-                        InfoRow(label: T("生产批次", "Production"), value: display.edidProductionText, monospaced: true)
-                        InfoRow(label: T("显示器 ID", "Display ID"), value: String(format: "V%04X / M%04X", display.vendorID, display.modelID), monospaced: true, isLast: true)
+                        InfoRow(label: T("显示器 ID", "Display ID"),
+                                value: String(format: "0x%04X / 0x%04X", display.vendorID, display.modelID),
+                                monospaced: true, isLast: true)
                     }
                 }
             }

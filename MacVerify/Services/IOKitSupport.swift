@@ -67,7 +67,14 @@ enum Sysctl {
 }
 
 enum Shell {
-    /// 执行只读命令并返回标准输出（失败返回 nil）
+    /// 执行只读命令并返回标准输出（失败或输出为空返回 nil）
+    ///
+    /// 三个必须处理的实际问题：
+    /// 1. stderr 必须接管。原先 `process.standardError = Pipe()` 但从不读取，
+    ///    子进程写满 64KB 管道缓冲后会永久阻塞，只能等超时。
+    /// 2. 必须读到 EOF。原先用 terminationHandler 就返回，进程退出瞬间管道里
+    ///    残留的数据会丢失，`system_profiler -json` 会变成被截断的非法 JSON。
+    /// 3. 超时后 terminate 并回收，避免留下子进程。
     @discardableResult
     static func run(_ path: String, _ arguments: [String], timeout: TimeInterval = 4) -> String? {
         guard FileManager.default.isExecutableFile(atPath: path) else { return nil }
@@ -75,40 +82,54 @@ enum Shell {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: path)
         process.arguments = arguments
+        process.qualityOfService = .userInitiated
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = Pipe()
+        let stdout = Pipe()
+        process.standardOutput = stdout
+        process.standardError = FileHandle.nullDevice
 
-        let semaphore = DispatchSemaphore(value: 0)
+        let finished = DispatchSemaphore(value: 0)
+        let outputLock = NSLock()
         var output = Data()
-
-        pipe.fileHandleForReading.readabilityHandler = { handle in
-            let chunk = handle.availableData
-            if chunk.isEmpty {
-                handle.readabilityHandler = nil
-            } else {
-                output.append(chunk)
-            }
-        }
-
-        process.terminationHandler = { _ in semaphore.signal() }
 
         do {
             try process.run()
         } catch {
-            pipe.fileHandleForReading.readabilityHandler = nil
             return nil
         }
+        // 关键：父进程必须关掉自己持有的写端，否则读端永远等不到 EOF，
+        // 只能靠超时兜底，最后还会在 Process 释放时崩溃（task still running）。
+        stdout.fileHandleForWriting.closeFile()
 
-        if semaphore.wait(timeout: .now() + timeout) == .timedOut {
+        // 独立线程读到 EOF，保证输出完整
+        let reader = Thread {
+            let data = stdout.fileHandleForReading.readDataToEndOfFile()
+            outputLock.lock()
+            output = data
+            outputLock.unlock()
+            finished.signal()
+        }
+        reader.stackSize = 128 * 1024
+        reader.start()
+
+        if finished.wait(timeout: .now() + timeout) == .timedOut {
             process.terminate()
-            pipe.fileHandleForReading.readabilityHandler = nil
-            return nil
+            if finished.wait(timeout: .now() + 0.5) == .timedOut {
+                kill(process.processIdentifier, SIGKILL)
+            }
         }
 
-        pipe.fileHandleForReading.readabilityHandler = nil
-        guard process.terminationStatus == 0 else { return nil }
-        return String(data: output, encoding: .utf8)
+        // 确保进程确实结束，否则 Process 释放时会抛 "task still running"
+        if process.isRunning {
+            process.terminate()
+        }
+        process.waitUntilExit()
+
+        outputLock.lock()
+        let data = output
+        outputLock.unlock()
+
+        guard process.terminationStatus == 0, !data.isEmpty else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 }

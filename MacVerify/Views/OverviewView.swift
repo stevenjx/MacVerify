@@ -29,8 +29,9 @@ struct OverviewView: View {
             )
 
             deviceCard
+            consistencyCard
             checksGrid
-            if info.panicLogCount > 0 || info.storage.smartHealthPercent != nil {
+            if info.panicLogCount > 0 || info.storage.smartPercentageUsed != nil || info.storage.statisticsAvailable {
                 healthSection
             }
             footerNote
@@ -67,7 +68,9 @@ struct OverviewView: View {
                 HStack(spacing: 8) {
                     tag(info.chipName, icon: "cpu")
                     if info.memoryGB > 0 { tag("\(info.memoryGB) GB", icon: "memorychip") }
-                    if info.storage.totalGB > 0 { tag("\(info.storage.totalGB) GB", icon: "internaldrive") }
+                    if info.storage.marketingCapacity != "—" {
+                        tag(info.storage.marketingCapacity, icon: "internaldrive")
+                    }
                 }
                 .padding(.top, 2)
 
@@ -90,6 +93,60 @@ struct OverviewView: View {
         .padding(18)
         .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(NSColor.controlBackgroundColor)))
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.primary.opacity(0.06), lineWidth: 1))
+    }
+
+    // MARK: - 一致性核验
+
+    private var consistencyCard: some View {
+        let findings = ConsistencyAudit.run(info: info)
+        let issues = findings.filter { $0.state == .inconsistent }.count
+        let notices = findings.filter { $0.state == .notice }.count
+        return Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionHeader(title: T("一致性核验", "CONSISTENCY"))
+                    Spacer()
+                    StatusBadge(
+                        text: issues > 0
+                            ? T("\(issues) 项不一致", "\(issues) mismatch(es)")
+                            : (notices > 0 ? T("\(notices) 项需确认", "\(notices) to confirm") : T("全部一致", "All consistent")),
+                        level: issues > 0 ? .critical : (notices > 0 ? .warning : .ok)
+                    )
+                }
+
+                Text(T("同一项事实分别从系统报告与内核接口读取，两路结果必须一致。改机型、刷序列号会在这里暴露。",
+                       "Each fact is read from two independent sources — the system report and the kernel interface. Tampered model or serial data shows up here."))
+                    .font(.system(size: 10.5))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(findings) { finding in
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: finding.state.symbol)
+                            .font(.system(size: 11))
+                            .foregroundColor(color(for: finding.state))
+                            .padding(.top, 1)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(finding.title).font(.system(size: 11.5, weight: .medium))
+                            Text(finding.detail).font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+
+    private func color(for state: AuditState) -> Color {
+        switch state {
+        case .consistent: return .green
+        case .notice: return .orange
+        case .inconsistent: return .red
+        case .unavailable: return .secondary
+        }
     }
 
     private func tag(_ text: String, icon: String) -> some View {
@@ -151,7 +208,7 @@ struct OverviewView: View {
                 items.append(CheckItem(
                     title: T("电池健康度", "Battery health"),
                     value: "\(String(format: "%.1f", health))% · \(battery.battery.cycleCount) \(T("次循环", "cycles"))",
-                    level: health >= 80 ? .ok : (health >= 70 ? .warning : .critical),
+                    level: batteryCheckLevel,
                     target: .battery
                 ))
             } else {
@@ -210,11 +267,9 @@ struct OverviewView: View {
 
         items.append(CheckItem(
             title: T("系统崩溃记录", "Kernel panics"),
-            value: info.panicLogCount > 0
-                ? T("\(info.panicLogCount) 条记录", "\(info.panicLogCount) records")
-                : T("无记录", "None"),
-            level: info.panicLogCount > 0 ? .warning : .ok,
-            target: nil
+            value: panicSummary,
+            level: !info.panicScanAvailable ? .neutral : (info.panicLogCount > 0 ? .warning : .ok),
+            target: .security
         ))
 
         items.append(CheckItem(
@@ -230,6 +285,22 @@ struct OverviewView: View {
     private func statusText(_ value: Bool?, on: String, off: String) -> String {
         guard let value = value else { return T("无法读取", "Unavailable") }
         return value ? on : off
+    }
+
+    private var panicSummary: String {
+        guard info.panicScanAvailable else { return T("无法读取", "Unavailable") }
+        return info.panicLogCount > 0
+            ? T("\(info.panicLogCount) 条记录", "\(info.panicLogCount) records")
+            : T("无记录", "None")
+    }
+
+    private var batteryCheckLevel: BadgeLevel {
+        switch battery.battery.healthGrade {
+        case .excellent, .good: return .ok
+        case .fair: return .warning
+        case .service: return .critical
+        case .unknown: return .neutral
+        }
     }
 
     // MARK: - 健康区域

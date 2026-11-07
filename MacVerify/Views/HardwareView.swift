@@ -21,7 +21,8 @@ struct HardwareView: View {
                     SectionHeader(title: T("机身", "CHASSIS")).padding(.bottom, 8)
                     InfoRow(label: T("机型标识", "Model identifier"), value: info.modelIdentifier, monospaced: true)
                     InfoRow(label: T("营销名称", "Marketing name"), value: info.modelDisplayName)
-                    InfoRow(label: T("机型编号", "Model number"), value: info.modelNumber.isEmpty ? "—" : info.modelNumber, monospaced: true)
+                    InfoRow(label: T("机壳型号", "Chassis model"), value: info.modelNumber.isEmpty ? "—" : info.modelNumber, monospaced: true)
+                    InfoRow(label: T("配置编号", "Part number"), value: info.partNumber.isEmpty ? "—" : info.partNumber, monospaced: true)
                     InfoRow(label: T("序列号", "Serial number"), value: info.serialNumber, monospaced: true)
                     InfoRow(label: T("架构", "Architecture"), value: info.architecture)
                     InfoRow(label: T("出厂年份", "Year"), value: yearFromModel(info.modelDisplayName), isLast: true)
@@ -34,7 +35,12 @@ struct HardwareView: View {
                     InfoRow(label: T("芯片", "Chip"), value: info.chipName)
                     InfoRow(label: T("核心", "Cores"), value: coreDescription)
                     InfoRow(label: T("内存", "Memory"), value: info.memoryGB > 0 ? "\(info.memoryGB) GB" : "—")
-                    InfoRow(label: T("图形处理器", "Graphics"), value: info.gpuName, isLast: true)
+                    InfoRow(label: T("图形处理器", "Graphics"), value: gpuDescription)
+                    InfoRow(label: T("存储", "Storage"),
+                            value: info.storage.marketingCapacity == "—"
+                                ? info.storage.deviceName
+                                : "\(info.storage.marketingCapacity) · \(info.storage.deviceName)",
+                            isLast: true)
                 }
             }
 
@@ -58,6 +64,13 @@ struct HardwareView: View {
         }
         return T("\(info.physicalCores) 核 / \(info.logicalCores) 线程",
                  "\(info.physicalCores) cores / \(info.logicalCores) threads")
+    }
+
+    private var gpuDescription: String {
+        if info.gpuCores > 0 {
+            return T("\(info.gpuName) · \(info.gpuCores) 核 GPU", "\(info.gpuName) · \(info.gpuCores)-core GPU")
+        }
+        return info.gpuName
     }
 
     private func yearFromModel(_ name: String) -> String {

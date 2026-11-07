@@ -1,6 +1,28 @@
 // Models/HardwareModels.swift
 import Foundation
 
+/// 内建/外接面板的身份信息。来源：CGDisplay + system_profiler SPDisplaysDataType。
+/// 注意：EDID 原始块在 Apple Silicon 上不向用户态开放，这不代表拿不到面板身份。
+struct PanelIdentity {
+    var vendorID: Int = 0
+    var productID: Int = 0
+    var serialNumber: UInt64 = 0
+    var typeName: String = ""
+    var connectionType: String = ""
+    var week: Int = -1
+    var year: Int = -1
+
+    var vendorText: String { vendorID > 0 ? String(format: "0x%04X", vendorID) : "—" }
+    var productText: String { productID > 0 ? String(format: "0x%04X", productID) : "—" }
+    var serialText: String { serialNumber > 0 ? String(serialNumber, radix: 16, uppercase: true) : "—" }
+
+    /// week / year 均为 0 表示面板未写入生产日期，不能当成 1990 年第 0 周
+    var productionText: String {
+        guard year > 1990, week > 0, week <= 53 else { return "—" }
+        return String(format: "%d / W%02d", year, week)
+    }
+}
+
 struct DisplayInfo {
     var name: String = "—"
     var isBuiltin: Bool = false
@@ -14,6 +36,7 @@ struct DisplayInfo {
     var serialNumber: UInt32 = 0
     var colorSpaceName: String = "—"
     var edid: EDIDInfo? = nil
+    var panel: PanelIdentity? = nil
 
     var resolutionText: String {
         guard pixelWidth > 0, pixelHeight > 0 else { return "—" }
@@ -51,7 +74,11 @@ struct EDIDInfo {
 }
 
 struct StorageInfo {
-    var totalGB: Int = 0
+    /// 物理介质容量（diskutil / IOMedia Size），与"卷可用容量"不是一回事
+    var physicalBytes: UInt64 = 0
+    /// diskutil 报告值，与 IOMedia 值交叉比对
+    var diskSizeFromDiskutil: UInt64 = 0
+    var diskSizeFromIOMedia: UInt64 = 0
     var deviceName: String = "—"
     var medium: String = "—"
     var readBytes: UInt64 = 0
@@ -63,6 +90,17 @@ struct StorageInfo {
     var smartCriticalWarning: Int? = nil
     var smartTemperature: Double? = nil
     var smartAvailable = false
+
+    /// 标称容量（如 1TB / 512GB）。按物理介质字节数取最接近的零售规格。
+    var marketingCapacity: String {
+        guard physicalBytes > 0 else { return "—" }
+        let decimalGB = Double(physicalBytes) / 1_000_000_000
+        let candidates: [(Double, String)] = [(128, "128GB"), (256, "256GB"), (512, "512GB"),
+                                             (1024, "1TB"), (2048, "2TB"), (4096, "4TB"), (8192, "8TB")]
+        let best = candidates.min { abs($0.0 - decimalGB) < abs($1.0 - decimalGB) }
+        guard let best = best, abs(best.0 - decimalGB) / best.0 < 0.12 else { return "—" }
+        return best.1
+    }
 }
 
 struct BatterySnapshot {
@@ -84,27 +122,70 @@ struct BatterySnapshot {
     var batteryInstalled = true
     var serialNumber: String = "—"
     var manufacturer: String = "—"
+    /// 电池计量芯片型号（如 bq40z651）。Apple 不公开电芯制造商，但芯片型号是真实可读的。
+    var gaugeModel: String = ""
     var timeToEmpty: Int? = nil
     var timeToFull: Int? = nil
     var adapterWatts: Int? = nil
     var adapterName: String? = nil
     var adapterManufacturer: String? = nil
 
-    /// 设计容量与当前满充容量之比（Apple 官方口径）
+    /// 设计容量与当前满充容量之比。
+    /// 口径与 macOS「系统设置 → 电池 → 电池健康 → 最大容量」一致：
+    /// 使用 AppleRawMaxCapacity ÷ DesignCapacity。
+    /// （实测：设计 6075 mAh、AppleRawMax 5441 mAh → 89.6%，系统显示 90%；
+    ///  若误用 NominalChargeCapacity 5591 mAh 会得到 92%，与系统不符。）
     var healthPercent: Double? {
         guard designCapacity > 0 else { return nil }
-        let source = nominalCapacity > 0 ? nominalCapacity : rawMaxCapacity
+        let source = rawMaxCapacity > 0 ? rawMaxCapacity : nominalCapacity
         guard source > 0 else { return nil }
         return min(100, Double(source) / Double(designCapacity) * 100)
     }
 
     var healthCapacity: Int {
-        nominalCapacity > 0 ? nominalCapacity : rawMaxCapacity
+        rawMaxCapacity > 0 ? rawMaxCapacity : nominalCapacity
     }
 
     var cycleProgress: Double {
         guard designCycleCount > 0 else { return 0 }
         return min(1, Double(cycleCount) / Double(designCycleCount))
+    }
+
+    /// 健康度分级。全 App 唯一口径，避免各页面用 85/80/90 等不同阈值导致自相矛盾。
+    /// 80% 是 Apple 对「建议检修」的官方界限。
+    var healthGrade: HealthGrade {
+        guard let health = healthPercent else { return .unknown }
+        switch health {
+        case 90...: return .excellent
+        case 80..<90: return .good
+        case 70..<80: return .fair
+        default: return .service
+        }
+    }
+}
+
+enum HealthGrade {
+    case excellent, good, fair, service, unknown
+
+    var title: String {
+        switch self {
+        case .excellent: return T("优秀", "Excellent")
+        case .good: return T("良好", "Good")
+        case .fair: return T("一般", "Fair")
+        case .service: return T("建议检修", "Service Recommended")
+        case .unknown: return T("不可用", "Unavailable")
+        }
+    }
+
+    /// 0 = 不可用，1...4 递增
+    var level: Int {
+        switch self {
+        case .unknown: return 0
+        case .service: return 1
+        case .fair: return 2
+        case .good: return 3
+        case .excellent: return 4
+        }
     }
 }
 
@@ -113,6 +194,8 @@ struct MacSystemInfo {
     var modelName: String = "—"
     var marketingName: String = "—"
     var modelNumber: String = ""
+    /// 实际 Part Number（如 Z17G000NALL/A），来自系统报告，反映 CTO 配置
+    var partNumber: String = ""
     var serialNumber: String = "—"
     var serialValid: Bool = false
 
@@ -126,6 +209,8 @@ struct MacSystemInfo {
     var memoryGB: Int = 0
     var memoryDescription: String = ""
     var gpuName: String = "—"
+    /// Apple Silicon 集成 GPU 的核心数（system_profiler sppci_cores）
+    var gpuCores: Int = 0
     var isLowPowerMode = false
     var uptime: TimeInterval = 0
 
@@ -142,12 +227,27 @@ struct MacSystemInfo {
     var remoteManagement: Bool? = nil
     var secureBootInfo: String? = nil
     var panicLogCount: Int = 0
+    /// 崩溃日志目录是否可读。不可读时必须显示"无法读取"，不能显示"无记录"。
+    var panicScanAvailable: Bool = false
     var lastPanicDate: Date? = nil
     var isRefurbished: Bool? = nil
 
     var display = DisplayInfo()
     var storage = StorageInfo()
     var assetTag: String = ""
+
+    // MARK: - 冗余数据源（用于一致性核验）
+    // 同一事实从两条独立通路读取，任一处被改写都会出现不一致。
+    // 这是"改机型、刷序列号"这类操作唯一可靠的破绽。
+
+    /// IOKit IOPlatformExpertDevice 读到的序列号
+    var serialFromIOKit: String? = nil
+    /// sysctl hw.model 读到的机型标识
+    var modelFromSysctl: String? = nil
+    /// sysctl machdep.cpu.brand_string 读到的芯片名
+    var chipFromSysctl: String? = nil
+    /// sysctl hw.memsize 读到的内存字节数
+    var memoryBytesFromSysctl: Int = 0
 
     var scannedAt = Date()
     var isScanning = false

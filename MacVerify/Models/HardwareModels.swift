@@ -79,6 +79,8 @@ struct StorageInfo {
     /// diskutil 报告值，与 IOMedia 值交叉比对
     var diskSizeFromDiskutil: UInt64 = 0
     var diskSizeFromIOMedia: UInt64 = 0
+    /// 启动盘是否为机身内建介质。从外接盘启动时，容量/型号都不代表内置 SSD。
+    var isInternalDisk: Bool? = nil
     var deviceName: String = "—"
     var medium: String = "—"
     var readBytes: UInt64 = 0

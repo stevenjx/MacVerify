@@ -30,6 +30,7 @@ struct OverviewView: View {
 
             deviceCard
             consistencyCard
+            originalityCard
             checksGrid
             if info.panicLogCount > 0 || info.storage.smartPercentageUsed != nil || info.storage.statisticsAvailable {
                 healthSection
@@ -146,6 +147,64 @@ struct OverviewView: View {
         case .notice: return .orange
         case .inconsistent: return .red
         case .unavailable: return .secondary
+        }
+    }
+
+    // MARK: - 原装性核对
+
+    private var originalityCard: some View {
+        let findings = OriginalityCheck.run(info: info, battery: battery.battery)
+        let issues = findings.filter { $0.state == .inconsistent }.count
+        let notices = findings.filter { $0.state == .notice }.count
+        let hasBaseline = ModelSpecCatalog.spec(for: info.modelIdentifier) != nil
+
+        return Card {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    SectionHeader(title: T("原装性核对", "ORIGINALITY"))
+                    Spacer()
+                    StatusBadge(
+                        text: !hasBaseline
+                            ? T("无对照数据", "No baseline")
+                            : (issues > 0
+                                ? T("\(issues) 项与规格不符", "\(issues) off-spec")
+                                : (notices > 0 ? T("\(notices) 项需确认", "\(notices) to confirm") : T("符合官方规格", "Matches Apple spec"))),
+                        level: !hasBaseline ? .neutral
+                            : (issues > 0 ? .critical : (notices > 0 ? .warning : .ok))
+                    )
+                }
+
+                Text(T("屏幕、内存、存储、电池规格与 Apple 官方技术规格比对。不匹配只代表「与官方规格不符」，不代表一定被改装过——维修换板也会造成同样结果。",
+                       "Display, memory, storage and battery are compared against Apple's published tech specs. A mismatch means \"not matching Apple's spec\", not proof of modification — a board-level repair would look the same."))
+                    .font(.system(size: 10.5))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(findings) { finding in
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: finding.state.symbol)
+                            .font(.system(size: 11))
+                            .foregroundColor(color(for: finding.state))
+                            .padding(.top, 1)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(finding.title).font(.system(size: 11.5, weight: .medium))
+                            Text(finding.detail).font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.vertical, 2)
+                }
+
+                if let spec = ModelSpecCatalog.spec(for: info.modelIdentifier) {
+                    Text(T("规格基线：\(spec.name) · 已收录 \(ModelSpecCatalog.entryCount) 个机型系列 · \(spec.source)",
+                           "Spec baseline: \(spec.name) · \(ModelSpecCatalog.entryCount) model families on file · \(spec.source)"))
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundColor(.secondary.opacity(0.8))
+                        .textSelection(.enabled)
+                }
+            }
         }
     }
 

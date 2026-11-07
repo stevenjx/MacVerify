@@ -33,6 +33,7 @@ MacVerify makes the evidence behind every claim inspectable.
 | --- | --- |
 | 概览 | 机型、芯片、内存、容量、电池健康、激活锁、FileVault、MDM、崩溃记录一站式汇总 |
 | 一致性核验 | 机型 / 序列号 / 芯片 / 磁盘容量 / 内建屏 / 内存各自双通路比对 |
+| 原装性核对 | 内建屏分辨率与对角线、内存与存储档位、GPU 核心数、电池容量，对照 Apple 官方技术规格（仅限已收录机型，未收录显示「无对照数据」）|
 | 设备信息 | 机型标识、营销名称、机壳型号、配置编号、序列号、核心构成、GPU 核心数、系统版本 |
 | 安全与合规 | 激活锁、FileVault、SIP、Gatekeeper、MDM 注册、远程管理描述文件、内核崩溃统计（含 `.ips`）|
 | 显示屏 | 原生分辨率、刷新率、缩放倍率、面板厂商/型号/序列号/类型（Apple Silicon 亦可读）、纯色检查 |
@@ -71,7 +72,7 @@ MacVerify makes the evidence behind every claim inspectable.
 
 ## 安装 / Install
 
-1. 下载 `MacVerify-1.0.0.dmg`
+1. 下载 `MacVerify-1.0.1.dmg`
 2. 打开后将 `MacVerify.app` 拖入「应用程序」
 3. 首次打开如提示"无法验证开发者"，右键点击应用 → 打开
    （或执行 `xattr -dr com.apple.quarantine /Applications/MacVerify.app`）
@@ -110,6 +111,14 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   不按前缀猜尺寸或年份。
 
 ## Changelog
+
+### 1.0.1
+- 新增**原装性核对**：内建屏分辨率/对角线、内存与存储档位、GPU 核心数、电池容量，
+  与该机型的 Apple 官方技术规格比对；未收录机型显示「无对照数据」，不做判断
+- 新增机型规格基线（`ModelSpecCatalog`），每条注明 Apple 技术规格页来源
+- 新增电池数据自洽校验：满充容量显著高于设计容量时提示数据被改写
+- 从外接盘启动时，存储相关核对自动跳过并说明原因
+- 报告与概览新增对应章节 / 卡片
 
 ### 1.0.0
 首个公开版本（重置版本号，取代此前的 1.0.0 / 1.0.1 预览发布）。

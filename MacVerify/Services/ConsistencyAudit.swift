@@ -44,10 +44,6 @@ enum ConsistencyAudit {
         return findings
     }
 
-    static func hasIssue(_ info: MacSystemInfo) -> Bool {
-        run(info: info).contains { $0.state == .inconsistent }
-    }
-
     // MARK: - 逐项
 
     /// system_profiler 的 machine_model 与 sysctl hw.model 必须一致
@@ -158,6 +154,14 @@ enum ConsistencyAudit {
     /// Apple 原厂 SSD 的介质名以 "APPLE SSD" 开头；更换过的硬盘不会是这个名字。
     private static func storageNameCheck(_ info: MacSystemInfo) -> AuditFinding {
         let name = info.storage.deviceName
+        if info.storage.isInternalDisk == false {
+            return AuditFinding(
+                title: T("硬盘是否为原厂介质", "Original drive check"),
+                detail: T("当前从外接磁盘启动，介质名 \(name) 属于外接盘，不代表内置 SSD。",
+                          "Booting from an external disk — \(name) is that disk, not the internal SSD."),
+                state: .unavailable
+            )
+        }
         guard name != "—", !name.isEmpty else {
             return AuditFinding(
                 title: T("硬盘是否为原厂介质", "Original drive check"),

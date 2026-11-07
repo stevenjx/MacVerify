@@ -326,6 +326,7 @@ final class SystemInfoStore: ObservableObject {
                 }
                 let name = (info["MediaName"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 if !name.isEmpty { storage.deviceName = name }
+                storage.isInternalDisk = info["Internal"] as? Bool
             }
             storage.diskSizeFromIOMedia = Self.ioMediaSize(forDisk: physical)
         }

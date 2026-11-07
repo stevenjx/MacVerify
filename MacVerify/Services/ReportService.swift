@@ -3,6 +3,7 @@
 // 未采集到的项一律输出 null / "unavailable"，避免下游误读为 0 或 false。
 import Foundation
 import AppKit
+import UniformTypeIdentifiers
 
 enum ReportState: String {
     case ok
@@ -182,6 +183,20 @@ enum ReportService {
         }
         sections.append(ReportSection(title: "一致性核验 / Consistency", items: consistencyItems))
 
+        // 原装性核对
+        var originalityItems: [ReportItem] = []
+        for finding in OriginalityCheck.run(info: info, battery: battery) {
+            originalityItems.append(ReportItem(
+                key: finding.title,
+                label: finding.title,
+                value: finding.state == .unavailable ? nil : auditValue(finding.state),
+                state: auditState(finding.state),
+                note: finding.source.map { "\(finding.detail) [\($0)]" } ?? finding.detail
+            ))
+            if finding.state == .inconsistent { issues += 1 }
+        }
+        sections.append(ReportSection(title: "原装性核对 / Originality", items: originalityItems))
+
         let verdict: String
         if issues == 0 {
             verdict = T("未发现需要关注的问题", "No issues found")
@@ -253,7 +268,9 @@ enum ReportService {
     static func save(info: MacSystemInfo, battery: BatterySnapshot) {
         let panel = NSSavePanel()
         panel.title = T("保存质检报告", "Save inspection report")
-        panel.allowedFileTypes = ["md"]
+        if let markdownType = UTType(filenameExtension: "md") {
+            panel.allowedContentTypes = [markdownType]
+        }
         panel.nameFieldStringValue = "MacVerify-\(fileStamp(info.scannedAt)).md"
         panel.canCreateDirectories = true
 

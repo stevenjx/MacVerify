@@ -83,15 +83,37 @@ struct StorageInfo {
     var isInternalDisk: Bool? = nil
     var deviceName: String = "—"
     var medium: String = "—"
+    /// 卷/容器级累计读写（APFS Statistics，从容器创建起算，格式化会清零）
     var readBytes: UInt64 = 0
     var writtenBytes: UInt64 = 0
     var statisticsAvailable = false
-    var smartHealthPercent: Int? = nil
-    var smartPercentageUsed: Int? = nil
-    var smartAvailableSpare: Int? = nil
-    var smartCriticalWarning: Int? = nil
-    var smartTemperature: Double? = nil
+
+    // MARK: - SMART（NVMe 原生，全生命周期）
+
     var smartAvailable = false
+    /// diskutil 的 SMARTStatus，通常是 "Verified"
+    var smartStatusText: String? = nil
+    /// 寿命已消耗百分比（NVMe Percentage Used）
+    var smartPercentageUsed: Int? = nil
+    var smartHealthPercent: Int? = nil
+    /// 剩余备用块百分比及其告警阈值
+    var smartAvailableSpare: Int? = nil
+    var smartSpareThreshold: Int? = nil
+    var smartMediaErrors: Int? = nil
+    var smartErrorLogEntries: Int? = nil
+    var smartCriticalWarning: Int? = nil
+    /// 摄氏温度
+    var smartTemperature: Double? = nil
+    var smartPowerCycles: Int? = nil
+    var smartPowerOnHours: Int? = nil
+    var smartUnsafeShutdowns: Int? = nil
+    /// 生命周期累计读写（Data Units × 512,000 字节）
+    var smartLifetimeReadBytes: UInt64? = nil
+    var smartLifetimeWrittenBytes: UInt64? = nil
+    var smartHostReadCommands: UInt64? = nil
+    var smartHostWriteCommands: UInt64? = nil
+    /// 数据来源：diskutil 或 IOKit
+    var smartSource: String? = nil
 
     /// 标称容量（如 1TB / 512GB）。按物理介质字节数取最接近的零售规格。
     var marketingCapacity: String {

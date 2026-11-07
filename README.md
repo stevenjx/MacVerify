@@ -37,7 +37,7 @@ MacVerify makes the evidence behind every claim inspectable.
 | 设备信息 | 机型标识、营销名称、机壳型号、配置编号、序列号、核心构成、GPU 核心数、系统版本 |
 | 安全与合规 | 激活锁、FileVault、SIP、Gatekeeper、MDM 注册、远程管理描述文件、内核崩溃统计（含 `.ips`）|
 | 显示屏 | 原生分辨率、刷新率、缩放倍率、面板厂商/型号/序列号/类型（Apple Silicon 亦可读）、纯色检查 |
-| 存储 | 磁盘型号、标称与物理容量、SMART 寿命、累计读写字节、顺序读写实测（8 MB 块 + `F_FULLFSYNC` 落盘）|
+| 存储 | 磁盘型号、标称与物理容量、**SMART 全字段**（寿命消耗、备用块、上电时长、通电次数、异常断电、介质错误、温度、生命周期累计读写）、顺序读写实测 |
 | 性能测试 | CPU 单核/多核吞吐、Metal 计算管线持续负载（真实批次/秒）|
 | 键盘与触控板 | 逐键触发与覆盖统计、修饰键左右区分、caps lock 触发、触控板定位与压力轨迹 |
 | 电池 | 设计容量、满充容量、健康度（与系统设置同口径）、循环、电压电流、内阻估算（ΔV/ΔI）|
@@ -72,7 +72,7 @@ MacVerify makes the evidence behind every claim inspectable.
 
 ## 安装 / Install
 
-1. 下载 `MacVerify-1.0.1.dmg`
+1. 下载 `MacVerify-1.0.2.dmg`
 2. 打开后将 `MacVerify.app` 拖入「应用程序」
 3. 首次打开如提示"无法验证开发者"，右键点击应用 → 打开
    （或执行 `xattr -dr com.apple.quarantine /Applications/MacVerify.app`）
@@ -101,16 +101,32 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 
 ## 已知限制 / Limitations
 
-- **SMART 与电池温度**：Apple Silicon 机型通常不向第三方公开，显示为「不可用」。
+- **电池温度**：Apple Silicon 机型通常不向第三方公开，显示为「不可用」。
 - **EDID 原始块**：Apple Silicon 不提供；面板厂商/型号/序列号改从 `SPDisplaysDataType` 读取，仍然可用。
 - **面板生产批次**：多数内建屏不写入生产日期，显示「不可用」，不按 0 值算成 1990 年。
+- **SMART**：内置 SSD 在 macOS 12 及以上可通过 `diskutil` 读取完整 NVMe SMART；
+  外接盘取决于 USB / Thunderbolt 桥接芯片是否转发 SMART，不转发时显示「不可用」。
 - **激活锁**：状态由系统在联网后返回；离线时可能读不到。
 - **充电上限**：macOS 在系统设置中管理，第三方应用无法安全改写，本工具只读取状态。
 - **压降与内阻**：必须在电池供电、真实放电时才有效；接电源时该项会被排除。
 - **机型表**：只收录 Apple 官方支持文档列出的标识符；未收录机型显示「未收录的机型（MacXX,Y）」，
   不按前缀猜尺寸或年份。
+- **规格基线**：原装性核对只覆盖已核对 Apple 技术规格页的机型，其余显示「无对照数据」，
+  覆盖进度见 [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)。
 
 ## Changelog
+
+### 1.0.2
+- 新增**SSD SMART 读取**：内建 SSD 的寿命消耗、备用块（含告警阈值）、上电时长、通电次数、
+  异常断电、介质错误、错误日志条目、温度、生命周期累计读写、主机命令数
+  - 数据源：`diskutil info -plist` 的 `SMARTDeviceSpecificKeysMayVaryNotGuaranteed`（Apple Silicon 亦可读），
+    Intel 机型另有 IOKit `IONVMeSMARTInterface` 兜底
+  - 温度原值为开尔文，按 273.15 换算（实测 306 → 32.9 ℃）
+  - 生命周期累计读写与「卷级累计」分开显示：前者含格式化前数据，后者从 APFS 容器创建起算
+- 修正此前「Apple Silicon 不公开 SMART」的错误结论——实际可读，之前的实现只查了 IOKit 一条通路
+- 机型规格基线扩展到 8 个系列（15″/16″ 2019、14″/16″ 2021、14″/16″ 2023、M1/M2 Air），
+  每条注明 Apple 技术规格页来源；Intel 机型按独立显卡、可换硬盘分别放宽判定
+- 开发规划改为带编号的任务清单（`A-01`…`G-05`）并加入完成度总览
 
 ### 1.0.1
 - 新增**原装性核对**：内建屏分辨率/对角线、内存与存储档位、GPU 核心数、电池容量，

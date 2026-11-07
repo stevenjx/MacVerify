@@ -332,6 +332,14 @@ enum Format {
 
     static func gb(_ value: Int) -> String { "\(value) GB" }
 
+    /// 大整数计数（如写入命令数），按本地化千分位
+    static func count(_ value: UInt64) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.locale = Localization.shared.locale
+        return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
+    }
+
     static func speed(_ value: Double) -> String {
         // 与磁盘容量统一使用十进制（1 GB/s = 1000 MB/s）
         value >= 1000 ? String(format: "%.2f GB/s", value / 1000) : String(format: "%.0f MB/s", value)

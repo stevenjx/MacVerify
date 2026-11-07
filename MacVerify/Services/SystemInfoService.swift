@@ -356,36 +356,14 @@ final class SystemInfoStore: ObservableObject {
             IOObjectRelease(media)
         }
 
-        // SMART 数据（Apple Silicon 上多数机型受限，缺失时如实显示不可用）
-        for className in ["AppleNVMeSMARTInterface", "IONVMeSMARTInterface"] {
-            let service = IOKit.firstService(matching: className)
-            guard service != 0 else { continue }
-            let properties = IOKit.properties(service)
-            IOObjectRelease(service)
-            guard !properties.isEmpty else { continue }
-
-            storage.smartAvailable = true
-            if let used = properties["Percentage Used"] as? Int {
-                storage.smartPercentageUsed = used
-                storage.smartHealthPercent = max(0, min(100, 100 - used))
+        // SMART：先走 IOKit（Intel 机型有 NVMe SMART 接口），再走 diskutil。
+        // 实测：diskutil info -plist 在现代 macOS 上会返回完整的 NVMe SMART 键值
+        // （SMARTDeviceSpecificKeysMayVaryNotGuaranteed），这是 Apple Silicon 上唯一可用且完整的通路。
+        Self.collectSmartFromIOKit(into: &storage)
+        if !storage.smartAvailable {
+            if let info = Self.diskutilInfo(Self.physicalStore(forDisk: rootDisk) ?? rootDisk) {
+                Self.applySmartFromDiskutil(info, into: &storage)
             }
-            if let spare = properties["Available Spare"] as? Int {
-                storage.smartAvailableSpare = spare
-            }
-            if let warning = properties["Critical Warning"] as? Int {
-                storage.smartCriticalWarning = warning
-            }
-            if let temperature = properties["Temperature"] as? Int {
-                storage.smartTemperature = Double(temperature)
-            }
-            if !storage.statisticsAvailable {
-                if let units = properties["Data Units Read"] as? UInt64, let writtenUnits = properties["Data Units Written"] as? UInt64 {
-                    storage.readBytes = units * 512_000
-                    storage.writtenBytes = writtenUnits * 512_000
-                    storage.statisticsAvailable = true
-                }
-            }
-            break
         }
 
         // 介质名兜底：物理盘取不到时再顺着 APFS 物理存储找一次
@@ -401,6 +379,130 @@ final class SystemInfoStore: ObservableObject {
         }
 
         return storage
+    }
+
+    // MARK: - SMART
+
+    /// Intel 机型：IONVMeSMARTInterface / AppleNVMeSMARTInterface 直接暴露 SMART 键值。
+    /// Apple Silicon 通常没有这两个类，需回落到 diskutil。
+    private static func collectSmartFromIOKit(into storage: inout StorageInfo) {
+        for className in ["AppleNVMeSMARTInterface", "IONVMeSMARTInterface"] {
+            let service = IOKit.firstService(matching: className)
+            guard service != 0 else { continue }
+            let properties = IOKit.properties(service)
+            IOObjectRelease(service)
+            guard !properties.isEmpty else { continue }
+
+            var found = false
+            if let used = intValue(properties["Percentage Used"]) {
+                storage.smartPercentageUsed = used
+                storage.smartHealthPercent = max(0, min(100, 100 - used))
+                found = true
+            }
+            if let spare = intValue(properties["Available Spare"]) {
+                storage.smartAvailableSpare = spare
+                found = true
+            }
+            if let spareThreshold = intValue(properties["Available Spare Threshold"]) {
+                storage.smartSpareThreshold = spareThreshold
+            }
+            if let warning = intValue(properties["Critical Warning"]) {
+                storage.smartCriticalWarning = warning
+            }
+            if let temperature = intValue(properties["Temperature"]) {
+                storage.smartTemperature = celsius(fromKelvin: temperature)
+            }
+            if let units = uintValue(properties["Data Units Read"]) {
+                storage.smartLifetimeReadBytes = units &* 512_000
+                found = true
+            }
+            if let units = uintValue(properties["Data Units Written"]) {
+                storage.smartLifetimeWrittenBytes = units &* 512_000
+            }
+            if let hours = intValue(properties["Power On Hours"]) { storage.smartPowerOnHours = hours }
+            if let cycles = intValue(properties["Power Cycles"]) { storage.smartPowerCycles = cycles }
+            if let unsafeShutdowns = intValue(properties["Unsafe Shutdowns"]) { storage.smartUnsafeShutdowns = unsafeShutdowns }
+            if let mediaErrors = intValue(properties["Media Errors"]) { storage.smartMediaErrors = mediaErrors }
+
+            if found {
+                storage.smartAvailable = true
+                storage.smartSource = "IOKit \(className)"
+                return
+            }
+        }
+    }
+
+    /// 现代 macOS（Intel 与 Apple Silicon 皆然）：
+    /// `diskutil info -plist <physicalDisk>` 的 SMARTDeviceSpecificKeysMayVaryNotGuaranteed
+    /// 里含有完整的 NVMe SMART 字段。这是 Apple Silicon 上唯一可用的完整通路。
+    private static func applySmartFromDiskutil(_ info: [String: Any], into storage: inout StorageInfo) {
+        let status = (info["SMARTStatus"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let status = status, !status.isEmpty { storage.smartStatusText = status }
+
+        guard let keys = info["SMARTDeviceSpecificKeysMayVaryNotGuaranteed"] as? [String: Any],
+              !keys.isEmpty else {
+            // 有状态但无明细（部分 USB/外接盘如此），仍然算"读到了状态"
+            if storage.smartStatusText != nil { storage.smartSource = "diskutil SMARTStatus" }
+            return
+        }
+
+        storage.smartAvailable = true
+        storage.smartSource = "diskutil SMART"
+
+        if let used = intValue(keys["PERCENTAGE_USED"]) {
+            storage.smartPercentageUsed = used
+            storage.smartHealthPercent = max(0, min(100, 100 - used))
+        }
+        if let spare = intValue(keys["AVAILABLE_SPARE"]) { storage.smartAvailableSpare = spare }
+        if let threshold = intValue(keys["AVAILABLE_SPARE_THRESHOLD"]) { storage.smartSpareThreshold = threshold }
+        if let temperature = intValue(keys["TEMPERATURE"]) {
+            storage.smartTemperature = celsius(fromKelvin: temperature)
+        }
+        if let hours = intValue(keys["POWER_ON_HOURS_0"]) { storage.smartPowerOnHours = hours }
+        if let cycles = intValue(keys["POWER_CYCLES_0"]) { storage.smartPowerCycles = cycles }
+        if let unsafeShutdowns = intValue(keys["UNSAFE_SHUTDOWNS_0"]) { storage.smartUnsafeShutdowns = unsafeShutdowns }
+        if let mediaErrors = intValue(keys["MEDIA_ERRORS_0"]) { storage.smartMediaErrors = mediaErrors }
+        if let errorLogs = intValue(keys["NUM_ERROR_INFO_LOG_ENTRIES_0"]) { storage.smartErrorLogEntries = errorLogs }
+        if let commands = uintValue(keys["HOST_READ_COMMANDS_0"]) { storage.smartHostReadCommands = commands }
+        if let commands = uintValue(keys["HOST_WRITE_COMMANDS_0"]) { storage.smartHostWriteCommands = commands }
+
+        // NVMe 的 Data Units 固定按 1000 × 512 字节换算
+        if let units = uintValue(keys["DATA_UNITS_READ_0"]) {
+            storage.smartLifetimeReadBytes = units &* 512_000
+        }
+        if let units = uintValue(keys["DATA_UNITS_WRITTEN_0"]) {
+            storage.smartLifetimeWrittenBytes = units &* 512_000
+        }
+        // 兼容旧版 diskutil 的带空格键名
+        if storage.smartPercentageUsed == nil, let used = intValue(keys["Percentage Used"]) {
+            storage.smartPercentageUsed = used
+            storage.smartHealthPercent = max(0, min(100, 100 - used))
+        }
+    }
+
+    /// NVMe 温度以开尔文记录（实测 306 → 32.9 ℃）。
+    /// 若某项异常低（< 200）则已是摄氏，不再减 273；避免把 40℃ 显示成 -233℃。
+    private static func celsius(fromKelvin raw: Int) -> Double? {
+        guard raw > 0 else { return nil }
+        let value = raw > 200 ? Double(raw) - 273.15 : Double(raw)
+        guard value > -20, value < 120 else { return nil }
+        return (value * 10).rounded() / 10
+    }
+
+    private static func intValue(_ value: Any?) -> Int? {
+        if let int = value as? Int { return int }
+        if let number = value as? NSNumber { return number.intValue }
+        if let int64 = value as? Int64 { return Int(int64) }
+        if let string = value as? String { return Int(string) }
+        return nil
+    }
+
+    private static func uintValue(_ value: Any?) -> UInt64? {
+        if let number = value as? NSNumber { return number.uint64Value }
+        if let uint = value as? UInt64 { return uint }
+        if let int = value as? Int, int >= 0 { return UInt64(int) }
+        if let string = value as? String, let parsed = UInt64(string) { return parsed }
+        return nil
     }
 
     /// 根卷（disk3）→ 物理存储（disk0）。APFS 容器必须顺着这个映射才能拿到真实介质。

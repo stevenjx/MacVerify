@@ -28,20 +28,71 @@ struct StorageView: View {
                                 : T("不可用", "Unavailable"))
                     InfoRow(label: T("可用卷容量", "Volume capacity"),
                             value: volumeCapacityText)
+
+                    SectionHeader(title: T("SMART", "SMART"))
+                        .padding(.top, 14)
+                        .padding(.bottom, 6)
                     InfoRow(label: T("SMART 状态", "SMART status"), value: smartText, valueColor: smartColor)
                     if let used = storage.smartPercentageUsed {
                         InfoRow(label: T("寿命消耗", "Wear used"), value: "\(used)%")
                     }
                     if let spare = storage.smartAvailableSpare {
-                        InfoRow(label: T("剩余备用块", "Available spare"), value: "\(spare)%")
+                        let threshold = storage.smartSpareThreshold.map { T(" · 阈值 \($0)%", " · threshold \($0)%") } ?? ""
+                        InfoRow(label: T("剩余备用块", "Available spare"), value: "\(spare)%\(threshold)")
                     }
-                    InfoRow(label: T("累计读取", "Total read"), value: storage.statisticsAvailable ? Format.bytes(storage.readBytes) : T("不可用", "Unavailable"))
-                    InfoRow(label: T("累计写入", "Total written"), value: storage.statisticsAvailable ? Format.bytes(storage.writtenBytes) : T("不可用", "Unavailable"), isLast: true)
+
+                    SectionHeader(title: T("累计读写", "CUMULATIVE I/O"))
+                        .padding(.top, 14)
+                        .padding(.bottom, 6)
+                    InfoRow(label: T("SSD 累计读取", "SSD lifetime read"), value: lifetimeReadText)
+                    InfoRow(label: T("SSD 累计写入", "SSD lifetime written"), value: lifetimeWriteText)
+                    InfoRow(label: T("卷级读取", "Volume read"),
+                            value: storage.statisticsAvailable ? Format.bytes(storage.readBytes) : T("不可用", "Unavailable"))
+                    InfoRow(label: T("卷级写入", "Volume write"),
+                            value: storage.statisticsAvailable ? Format.bytes(storage.writtenBytes) : T("不可用", "Unavailable"))
+
+                    if storage.smartAvailable {
+                        SectionHeader(title: T("SMART 明细", "SMART DETAILS"))
+                            .padding(.top, 14)
+                            .padding(.bottom, 6)
+                        if let hours = storage.smartPowerOnHours {
+                            InfoRow(label: T("上电时长", "Power-on hours"), value: "\(hours) h")
+                        }
+                        if let cycles = storage.smartPowerCycles {
+                            InfoRow(label: T("上电次数", "Power cycles"), value: "\(cycles)")
+                        }
+                        if let shutdowns = storage.smartUnsafeShutdowns {
+                            InfoRow(label: T("异常断电", "Unsafe shutdowns"),
+                                    value: "\(shutdowns)",
+                                    valueColor: shutdowns > 100 ? .orange : .primary)
+                        }
+                        if let errors = storage.smartMediaErrors {
+                            InfoRow(label: T("介质错误", "Media errors"),
+                                    value: "\(errors)",
+                                    valueColor: errors > 0 ? .red : .primary)
+                        }
+                        if let entries = storage.smartErrorLogEntries {
+                            InfoRow(label: T("错误日志条目", "Error log entries"), value: "\(entries)")
+                        }
+                        if let temperature = storage.smartTemperature {
+                            InfoRow(label: T("SSD 温度", "SSD temperature"),
+                                    value: String(format: "%.1f °C", temperature))
+                        }
+                        if let commands = storage.smartHostWriteCommands {
+                            InfoRow(label: T("写入命令数", "Host write commands"), value: Format.count(commands))
+                        }
+                        if let source = storage.smartSource {
+                            Text(T("数据来源：\(source)", "Source: \(source)"))
+                                .font(.system(size: 9, design: .monospaced))
+                                .foregroundColor(.secondary.opacity(0.8))
+                                .padding(.top, 6)
+                        }
+                    }
 
                     if !storage.smartAvailable {
                         NoticeBar(
-                            text: T("该机型未向用户态公开 SMART 数据。Apple Silicon 机型通常在系统内部读取，第三方工具无法获取，这是系统限制而非故障。",
-                                   "SMART data is not exposed on this model. Apple Silicon Macs read it internally; third-party tools cannot. This is a system limitation, not a fault."),
+                            text: T("本机未返回 SMART 数据。常见原因：外接盘通过 USB 桥接（不转发 SMART）、或系统版本过旧。内置 SSD 在 macOS 12 及以上通常可读。",
+                                   "No SMART data returned. Common causes: a USB-bridged external drive (which does not forward SMART), or an old macOS. Built-in SSDs are usually readable on macOS 12 and later."),
                             level: .neutral
                         )
                         .padding(.top, 10)
@@ -115,7 +166,19 @@ struct StorageView: View {
         if let health = storage.smartHealthPercent {
             return health >= 80 ? T("正常（\(health)%）", "OK (\(health)%)") : T("剩余 \(health)%", "\(health)% remaining")
         }
+        if let status = storage.smartStatusText { return status }
         return T("不可用", "Unavailable")
+    }
+
+    /// 全生命周期累计读取（NVMe SMART），与"卷级统计"不同：格式化不会清零。
+    private var lifetimeReadText: String {
+        guard let bytes = storage.smartLifetimeReadBytes else { return T("不可用", "Unavailable") }
+        return Format.bytes(bytes)
+    }
+
+    private var lifetimeWriteText: String {
+        guard let bytes = storage.smartLifetimeWrittenBytes else { return T("不可用", "Unavailable") }
+        return Format.bytes(bytes)
     }
 
     /// 根卷所在 APFS 容器的可用容量。与物理容量区分，避免把 1TB 机器读成 995GB。

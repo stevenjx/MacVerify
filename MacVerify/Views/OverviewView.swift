@@ -198,8 +198,8 @@ struct OverviewView: View {
                 }
 
                 if let spec = ModelSpecCatalog.spec(for: info.modelIdentifier) {
-                    Text(T("规格基线：\(spec.name) · 已收录 \(ModelSpecCatalog.entryCount) 个机型系列 · \(spec.source)",
-                           "Spec baseline: \(spec.name) · \(ModelSpecCatalog.entryCount) model families on file · \(spec.source)"))
+                    Text(T("规格基线：\(spec.name) · \(ModelSpecCatalog.coverageText) · \(spec.source)",
+                           "Spec baseline: \(spec.name) · \(ModelSpecCatalog.coverageText) · \(spec.source)"))
                         .font(.system(size: 9, design: .monospaced))
                         .foregroundColor(.secondary.opacity(0.8))
                         .textSelection(.enabled)
@@ -318,7 +318,7 @@ struct OverviewView: View {
         } else {
             items.append(CheckItem(
                 title: T("SSD 健康度", "SSD health"),
-                value: T("该机型未公开 SMART", "SMART not exposed"),
+                value: T("未返回 SMART 数据", "No SMART data"),
                 level: .neutral,
                 target: .storage
             ))
@@ -404,8 +404,8 @@ struct OverviewView: View {
 
     private var footerNote: some View {
         NoticeBar(
-            text: T("所有数据均来自本机 IOKit、sysctl 与系统命令，不修改任何系统设置。部分机型不公开 SMART、温度等传感器数据，该项会显示“不可用”。",
-                   "All values come from IOKit, sysctl and read-only system commands. Nothing is modified. Some models do not expose SMART or temperature sensors; those fields show as unavailable."),
+            text: T("所有数据均来自本机 IOKit、sysctl 与系统命令，不修改任何系统设置。取不到的项显示「不可用」或「无法读取」，不会用 0 或估算值代替。",
+                   "All values come from IOKit, sysctl and read-only system commands. Nothing is modified. Missing values are shown as unavailable or unreadable — never replaced with 0 or an estimate."),
             level: .neutral
         )
     }

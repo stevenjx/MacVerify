@@ -133,6 +133,16 @@ enum OriginalityCheck {
 
     private static func storageCheck(_ storage: StorageInfo, _ spec: ModelSpec) -> OriginalityFinding {
         let title = T("存储档位", "Storage configuration")
+        // 该机型硬盘可自行更换，容量不符属于正常，不做判断
+        guard spec.storageSoldered else {
+            return OriginalityFinding(
+                title: title,
+                detail: T("该机型硬盘可自行更换，容量与出厂配置不同属正常，不做判断。",
+                          "This model has a user-replaceable drive, so a different capacity is normal; not judged."),
+                state: .unavailable,
+                source: spec.source
+            )
+        }
         // 从外接盘启动时，读到的容量属于外接盘，与内置 SSD 无关
         if storage.isInternalDisk == false {
             return OriginalityFinding(
@@ -192,6 +202,16 @@ enum OriginalityCheck {
     // MARK: - GPU
     private static func gpuCheck(_ info: MacSystemInfo, _ spec: ModelSpec) -> OriginalityFinding {
         let title = T("GPU 核心数", "GPU core count")
+        // Intel 机型为独立显卡，核心数不由机型唯一决定，该项不适用
+        guard !spec.gpuCores.isEmpty else {
+            return OriginalityFinding(
+                title: title,
+                detail: T("该机型为独立显卡，GPU 核心数不由机型决定，不做判断。",
+                          "This model uses a discrete GPU, so the core count does not identify the model; not judged."),
+                state: .unavailable,
+                source: spec.source
+            )
+        }
         guard info.gpuCores > 0 else {
             return OriginalityFinding(
                 title: title,

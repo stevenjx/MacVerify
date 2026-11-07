@@ -123,7 +123,42 @@ enum ReportService {
                        value: storage.smartHealthPercent.map { "\($0)%" },
                        state: storage.smartHealthPercent == nil ? .unavailable
                            : (storage.smartHealthPercent! >= 80 ? .ok : (storage.smartHealthPercent! >= 50 ? .warning : .critical)),
-                       note: storage.smartHealthPercent == nil ? "本机未向用户态公开 SMART 数据" : nil)
+                       note: storage.smartHealthPercent == nil ? "本机未提供 SMART 数据" : nil),
+            item("smart_status", "SMART 状态", emptyToNil(storage.smartStatusText ?? "—"),
+                 storage.smartStatusText == nil ? .unavailable : .ok),
+            item("smart_lifetime_read", "SSD 累计读取（字节）",
+                 storage.smartLifetimeReadBytes.map { "\($0)" },
+                 storage.smartLifetimeReadBytes == nil ? .unavailable : .ok,
+                 note: storage.smartLifetimeReadBytes == nil ? nil : "NVMe Data Units 换算，含格式化前数据"),
+            item("smart_lifetime_written", "SSD 累计写入（字节）",
+                 storage.smartLifetimeWrittenBytes.map { "\($0)" },
+                 storage.smartLifetimeWrittenBytes == nil ? .unavailable : .ok,
+                 note: storage.smartLifetimeWrittenBytes == nil ? nil : "NVMe Data Units 换算，含格式化前数据"),
+            item("smart_power_on_hours", "SSD 上电时长（小时）",
+                 storage.smartPowerOnHours.map { "\($0)" },
+                 storage.smartPowerOnHours == nil ? .unavailable : .ok),
+            item("smart_power_cycles", "SSD 上电次数",
+                 storage.smartPowerCycles.map { "\($0)" },
+                 storage.smartPowerCycles == nil ? .unavailable : .ok),
+            ReportItem(key: "smart_unsafe_shutdowns", label: "异常断电次数",
+                       value: storage.smartUnsafeShutdowns.map { "\($0)" },
+                       state: storage.smartUnsafeShutdowns == nil ? .unavailable
+                           : ((storage.smartUnsafeShutdowns ?? 0) > 100 ? .warning : .ok),
+                       note: nil),
+            ReportItem(key: "smart_media_errors", label: "介质错误次数",
+                       value: storage.smartMediaErrors.map { "\($0)" },
+                       state: storage.smartMediaErrors == nil ? .unavailable
+                           : ((storage.smartMediaErrors ?? 0) > 0 ? .critical : .ok),
+                       note: nil),
+            item("smart_available_spare", "剩余备用块 (%)",
+                 storage.smartAvailableSpare.map { "\($0)" },
+                 storage.smartAvailableSpare == nil ? .unavailable : .ok),
+            item("smart_spare_threshold", "备用块告警阈值 (%)",
+                 storage.smartSpareThreshold.map { "\($0)" },
+                 storage.smartSpareThreshold == nil ? .unavailable : .ok),
+            item("smart_temperature", "SSD 温度 (°C)",
+                 storage.smartTemperature.map { String(format: "%.1f", $0) },
+                 storage.smartTemperature == nil ? .unavailable : .ok)
         ]
         if let health = storage.smartHealthPercent, health < 80 { issues += 1 }
         sections.append(ReportSection(title: "存储 / Storage", items: storageItems))

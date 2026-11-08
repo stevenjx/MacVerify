@@ -198,8 +198,11 @@ struct OverviewView: View {
                 }
 
                 if let spec = ModelSpecCatalog.spec(for: info.modelIdentifier) {
-                    Text(T("规格基线：\(spec.name) · \(ModelSpecCatalog.coverageText) · \(spec.source)",
-                           "Spec baseline: \(spec.name) · \(ModelSpecCatalog.coverageText) · \(spec.source)"))
+                    // 用「覆盖」而不是「规格基线：<名称>」。同一标识符可能跨两代
+                    // （如 MacBookPro15,3 只属 2019，其基线条目覆盖 2018/2019），
+                    // 直接把基线名称写成机器的名字会让人误以为识别结果与基线冲突。
+                    Text(T("对照基线覆盖 \(spec.name) · \(ModelSpecCatalog.coverageText) · \(spec.source)",
+                           "Baseline covers \(spec.name) · \(ModelSpecCatalog.coverageText) · \(spec.source)"))
                         .font(.system(size: 9, design: .monospaced))
                         .foregroundColor(.secondary.opacity(0.8))
                         .textSelection(.enabled)

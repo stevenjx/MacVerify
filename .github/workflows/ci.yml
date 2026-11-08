@@ -22,7 +22,7 @@ concurrency:
 jobs:
   verify:
     name: 单元测试与自检
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -52,7 +52,7 @@ jobs:
 
   build:
     name: 编译 App
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -75,7 +75,7 @@ jobs:
     name: 打包（仅 tag）
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [verify, build]
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 

@@ -21,12 +21,11 @@ struct OriginalityFinding: Identifiable {
 
 enum OriginalityCheck {
 
-    /// 电池包标称电压。Apple 这几代 3-cell 电池组均在 11.4–11.5V，
-    /// 用 11.45V 把 mAh 折算成 Wh 与官方额定值比对（14 吋 2023：6075mAh×11.45 ≈ 69.6Wh，与官方 69.6Wh 相符）。
-    /// 该折算只用于「是否相差过大」的粗判，结论措辞为「建议确认」。
-    private static let nominalPackVoltage = 11.45
+    /// 电池容量比对的容差。仅在使用本机实测的额定电压时启用——
+    /// Apple 只公布 Wh，电池只报 mAh，换算必须知道电池组额定电压；
+    /// 各机型电池组芯数不同（如 MacBook Air 多为 2 芯约 7.6V，MacBook Pro 为 3 芯约 11.4V），
+    /// 用统一常数折算会让整类机型误判，因此取不到额定电压时不做判断。
     private static let batteryTolerance = 0.10
-    private static let storageTolerance = 0.03
     private static let displayToleranceInches = 0.6
 
     static func run(info: MacSystemInfo, battery: BatterySnapshot) -> [OriginalityFinding] {
@@ -133,8 +132,18 @@ enum OriginalityCheck {
 
     private static func storageCheck(_ storage: StorageInfo, _ spec: ModelSpec) -> OriginalityFinding {
         let title = T("存储档位", "Storage configuration")
+        // storageSoldered == nil：未核实该机型硬盘是否可自行更换，不做判断
+        guard let soldered = spec.storageSoldered else {
+            return OriginalityFinding(
+                title: title,
+                detail: T("未核实该机型的硬盘是否可自行更换，容量差异可能属于正常升级，不做判断。",
+                          "Drive replaceability is not verified for this model, so a capacity difference may be a normal upgrade. Not judged."),
+                state: .unavailable,
+                source: spec.source
+            )
+        }
         // 该机型硬盘可自行更换，容量不符属于正常，不做判断
-        guard spec.storageSoldered else {
+        guard soldered else {
             return OriginalityFinding(
                 title: title,
                 detail: T("该机型硬盘可自行更换，容量与出厂配置不同属正常，不做判断。",
@@ -162,8 +171,12 @@ enum OriginalityCheck {
             )
         }
         let measuredGB = Double(storage.physicalBytes) / 1_000_000_000
+        // Apple 的标称容量（如 256GB / 1TB）按十进制计，但物理盘实测字节数通常略低于标称、
+        // 个别型号（1TB）又略高，因此用非对称窗口：[标称 × 0.93, 标称 × 1.02]。
+        // 相邻档位相差 2 倍，窗口不会互相覆盖，不会把 256GB 认成 512GB。
         let matched = spec.storageOptionsGB.first { option in
-            abs(measuredGB - Double(option)) / Double(option) <= storageTolerance
+            let nominal = Double(option)
+            return measuredGB >= nominal * 0.93 && measuredGB <= nominal * 1.02
         }
         let options = spec.storageOptionsGB.map(storageLabel).joined(separator: " / ")
 
@@ -185,29 +198,30 @@ enum OriginalityCheck {
         )
     }
 
-    /// 把十进制容量映射回 Apple 的营销名称（500 → 512GB，1000 → 1TB）
-    private static func storageLabel(_ decimalGB: Int) -> String {
-        switch decimalGB {
-        case 121: return "128GB"
-        case 251: return "256GB"
-        case 500: return "512GB"
+    /// 把标称 GB 映射成 Apple 的营销名称（512 → 512GB，1000 → 1TB）
+    private static func storageLabel(_ nominalGB: Int) -> String {
+        switch nominalGB {
+        case 128: return "128GB"
+        case 256: return "256GB"
+        case 512: return "512GB"
         case 1000: return "1TB"
+        case 1500: return "1.5TB"
         case 2000: return "2TB"
         case 4000: return "4TB"
         case 8000: return "8TB"
-        default: return "\(decimalGB)GB"
+        default: return "\(nominalGB)GB"
         }
     }
 
     // MARK: - GPU
     private static func gpuCheck(_ info: MacSystemInfo, _ spec: ModelSpec) -> OriginalityFinding {
         let title = T("GPU 核心数", "GPU core count")
-        // Intel 机型为独立显卡，核心数不由机型唯一决定，该项不适用
+        // Intel 机型的图形处理器由芯片型号决定，与机型标识无关，该项不适用
         guard !spec.gpuCores.isEmpty else {
             return OriginalityFinding(
                 title: title,
-                detail: T("该机型为独立显卡，GPU 核心数不由机型决定，不做判断。",
-                          "This model uses a discrete GPU, so the core count does not identify the model; not judged."),
+                detail: T("该机型为 Intel 平台，图形处理器核心数由芯片型号决定、不由机型标识唯一决定，不做判断。",
+                          "This model is Intel-based; the GPU core count follows the chip, not the model identifier. Not judged."),
                 state: .unavailable,
                 source: spec.source
             )
@@ -251,22 +265,33 @@ enum OriginalityCheck {
                 source: spec.source
             )
         }
-        let wh = Double(battery.designCapacity) * nominalPackVoltage / 1000
+        // Apple 公布的是 Wh，电池报的是 mAh，二者之间需要电池组额定电压。
+        // 取不到就不能换算——用假设值折算会让整类机型（如 2 芯的 Air）误判。
+        guard let voltage = battery.designVoltage, voltage > 0 else {
+            return OriginalityFinding(
+                title: title,
+                detail: T("本机未提供电池组额定电压，无法把 \(battery.designCapacity) mAh 折算成 Wh 与官方 \(String(format: "%.1f", spec.batteryActualWh)) Wh 比对，该项不做判断。",
+                          "This Mac does not expose the pack's rated voltage, so \(battery.designCapacity) mAh cannot be converted to Wh for comparison with Apple's \(String(format: "%.1f", spec.batteryActualWh)) Wh. Not judged."),
+                state: .unavailable,
+                source: spec.source
+            )
+        }
+        let wh = Double(battery.designCapacity) * voltage / 1000
         let deviation = (wh - spec.batteryActualWh) / spec.batteryActualWh
 
         if abs(deviation) <= batteryTolerance {
             return OriginalityFinding(
                 title: title,
-                detail: T("设计容量 \(battery.designCapacity) mAh ≈ \(String(format: "%.1f", wh)) Wh，与官方额定 \(String(format: "%.1f", spec.batteryActualWh)) Wh 相符。",
-                          "Design capacity \(battery.designCapacity) mAh ≈ \(String(format: "%.1f", wh)) Wh, consistent with Apple's rated \(String(format: "%.1f", spec.batteryActualWh)) Wh."),
+                detail: T("设计容量 \(battery.designCapacity) mAh × \(String(format: "%.2f", voltage)) V ≈ \(String(format: "%.1f", wh)) Wh，与官方额定 \(String(format: "%.1f", spec.batteryActualWh)) Wh 相符。",
+                          "Design \(battery.designCapacity) mAh × \(String(format: "%.2f", voltage)) V ≈ \(String(format: "%.1f", wh)) Wh, consistent with Apple's rated \(String(format: "%.1f", spec.batteryActualWh)) Wh."),
                 state: .consistent,
                 source: spec.source
             )
         }
         return OriginalityFinding(
             title: title,
-            detail: T("设计容量 \(battery.designCapacity) mAh ≈ \(String(format: "%.1f", wh)) Wh，与官方额定 \(String(format: "%.1f", spec.batteryActualWh)) Wh 相差 \(String(format: "%+.0f", deviation * 100))%。该电池可能不是该机型的原装规格，建议确认更换记录。",
-                      "Design capacity \(battery.designCapacity) mAh ≈ \(String(format: "%.1f", wh)) Wh, \(String(format: "%+.0f", deviation * 100))% off Apple's rated \(String(format: "%.1f", spec.batteryActualWh)) Wh. This battery may not be the original spec for this model — check the service history."),
+            detail: T("设计容量 \(battery.designCapacity) mAh × \(String(format: "%.2f", voltage)) V ≈ \(String(format: "%.1f", wh)) Wh，与官方额定 \(String(format: "%.1f", spec.batteryActualWh)) Wh 相差 \(String(format: "%+.0f", deviation * 100))%。该电池可能不是该机型的原装规格，建议确认更换记录。",
+                      "Design \(battery.designCapacity) mAh × \(String(format: "%.2f", voltage)) V ≈ \(String(format: "%.1f", wh)) Wh, \(String(format: "%+.0f", deviation * 100))% off Apple's rated \(String(format: "%.1f", spec.batteryActualWh)) Wh. This battery may not be the original spec for this model — check the service history."),
             state: .notice,
             source: spec.source
         )

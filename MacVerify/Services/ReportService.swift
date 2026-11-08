@@ -32,6 +32,9 @@ enum ReportService {
     static func build(info: MacSystemInfo, battery: BatterySnapshot) -> (sections: [ReportSection], verdict: String, issues: Int) {
         var sections: [ReportSection] = []
         var issues = 0
+        // risks = 明确不一致；confirmations = 需人工确认（不超过「不一致」的严重度）
+        var risks = 0
+        var confirmations = 0
 
         // 设备
         var device: [ReportItem] = [
@@ -214,7 +217,8 @@ enum ReportService {
                 state: auditState(finding.state),
                 note: finding.detail
             ))
-            if finding.state == .inconsistent { issues += 1 }
+            if finding.state == .inconsistent { risks += 1 }
+            if finding.state == .notice { confirmations += 1 }
         }
         sections.append(ReportSection(title: "一致性核验 / Consistency", items: consistencyItems))
 
@@ -228,20 +232,26 @@ enum ReportService {
                 state: auditState(finding.state),
                 note: finding.source.map { "\(finding.detail) [\($0)]" } ?? finding.detail
             ))
-            if finding.state == .inconsistent { issues += 1 }
+            if finding.state == .inconsistent { risks += 1 }
+            if finding.state == .notice { confirmations += 1 }
         }
         sections.append(ReportSection(title: "原装性核对 / Originality", items: originalityItems))
 
+        // 结论必须与表格里的状态一致：出现过 warning 行就不能说「未发现问题」。
+        // issues 是前面各段（序列号、崩溃日志、安全项、电池健康等）累计的计数，不能被覆盖。
+        let totalIssues = issues + risks + confirmations
         let verdict: String
-        if issues == 0 {
-            verdict = T("未发现需要关注的问题", "No issues found")
-        } else if issues <= 2 {
-            verdict = T("发现 \(issues) 项需要确认", "\(issues) item(s) need confirmation")
+        if risks > 0 {
+            verdict = T("发现 \(risks) 项不一致，另有 \(issues + confirmations) 项需确认，建议人工复核",
+                        "\(risks) mismatch(es) plus \(issues + confirmations) item(s) to confirm — manual review advised")
+        } else if totalIssues > 0 {
+            verdict = T("未发现不一致，有 \(totalIssues) 项需人工确认",
+                        "No mismatch found; \(totalIssues) item(s) need confirmation")
         } else {
-            verdict = T("发现 \(issues) 项风险，建议人工复核", "\(issues) risk(s) found — manual review advised")
+            verdict = T("未发现需要关注的问题", "No issues found")
         }
 
-        return (sections, verdict, issues)
+        return (sections, verdict, totalIssues)
     }
 
     // MARK: - 输出

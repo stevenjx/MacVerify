@@ -100,6 +100,12 @@ enum ConsistencyAudit {
     }
 
     /// 芯片：系统报告 chip_type vs sysctl machdep.cpu.brand_string
+    ///
+    /// 两种来源的写法不同：Apple Silicon 上二者完全相同（"Apple M2 Pro"），
+    /// 但 Intel 上 chip_type 是简短型号（"Intel Core i7"），
+    /// brand_string 是完整串（"Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"）。
+    /// 直接做相等比较会把每一台 Intel Mac 都判成篡改，因此按"包含关系"核对：
+    /// 去掉 (R)/(TM)、折叠空白后，只要一个是另一个的子串就视为同一颗芯片。
     private static func chipCheck(_ info: MacSystemInfo) -> AuditFinding {
         guard let fromSysctl = info.chipFromSysctl, !fromSysctl.isEmpty else {
             return AuditFinding(
@@ -108,7 +114,16 @@ enum ConsistencyAudit {
                 state: .unavailable
             )
         }
-        if info.chipName == fromSysctl {
+        let a = normalizeChip(info.chipName)
+        let b = normalizeChip(fromSysctl)
+        guard !a.isEmpty, !b.isEmpty else {
+            return AuditFinding(
+                title: T("芯片双源核对", "Chip cross-check"),
+                detail: T("芯片名称无法比较。", "Chip names could not be compared."),
+                state: .unavailable
+            )
+        }
+        if a == b || a.contains(b) || b.contains(a) {
             return AuditFinding(
                 title: T("芯片双源核对", "Chip cross-check"),
                 detail: T("两个来源一致：\(fromSysctl)", "Both sources agree: \(fromSysctl)"),
@@ -121,6 +136,17 @@ enum ConsistencyAudit {
                       "System report says \(info.chipName) but the kernel says \(fromSysctl)."),
             state: .inconsistent
         )
+    }
+
+    /// 归一化芯片名称：去掉商标符号、折叠空白、统一小写
+    private static func normalizeChip(_ raw: String) -> String {
+        var s = raw
+        for token in ["(R)", "(TM)", "(r)", "(tm)", "®", "™"] {
+            s = s.replacingOccurrences(of: token, with: "")
+        }
+        s = s.replacingOccurrences(of: "CPU", with: "", options: .caseInsensitive)
+        s = s.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ")
+        return s.trimmingCharacters(in: .whitespaces).lowercased()
     }
 
     /// 物理盘容量：diskutil vs IOMedia
@@ -229,7 +255,10 @@ enum ConsistencyAudit {
         }
         let bytes = info.memoryBytesFromSysctl
         let gib = Double(bytes) / 1_073_741_824
-        let isStandard = abs(gib - gib.rounded()) < 0.01 && [8.0, 16.0, 18.0, 24.0, 32.0, 36.0, 48.0, 64.0, 96.0, 128.0, 192.0].contains(gib.rounded())
+        // 常见档位包含 Intel 世代的 4GB（MacBook Air 2015/2017 起售配置），
+        // 漏掉它会把原装机判成「非常见配置」。
+        let standardSizes: [Double] = [4, 8, 16, 18, 24, 32, 36, 48, 64, 96, 128, 192]
+        let isStandard = abs(gib - gib.rounded()) < 0.01 && standardSizes.contains(gib.rounded())
         if isStandard {
             return AuditFinding(
                 title: T("内存容量自检", "Memory size check"),

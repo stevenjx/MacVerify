@@ -88,6 +88,12 @@ final class BatteryStore: ObservableObject {
         if let voltage = intValue(properties["Voltage"]), voltage > 0 {
             snapshot.voltage = Double(voltage) / 1000
         }
+        // 电池组额定电压：部分机型（多为 Intel）在 IORegistry 中直接给出，
+        // Apple Silicon 上通常没有该键。取不到就留 nil，不用假设值代替。
+        if let designMillivolts = intValue(properties["DesignVoltage"]) ?? intValue(batteryData["DesignVoltage"]),
+           designMillivolts > 4000, designMillivolts < 20000 {
+            snapshot.designVoltage = Double(designMillivolts) / 1000
+        }
         if let rawAmperage = intValue(properties["InstantAmperage"]) ?? intValue(properties["Amperage"]) {
             snapshot.amperage = Double(rawAmperage) / 1000
         }

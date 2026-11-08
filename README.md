@@ -72,7 +72,7 @@ MacVerify makes the evidence behind every claim inspectable.
 
 ## 安装 / Install
 
-1. 下载 `MacVerify-1.0.2.dmg`
+1. 下载 `MacVerify-1.0.3.dmg`
 2. 打开后将 `MacVerify.app` 拖入「应用程序」
 3. 首次打开如提示"无法验证开发者"，右键点击应用 → 打开
    （或执行 `xattr -dr com.apple.quarantine /Applications/MacVerify.app`）
@@ -113,8 +113,31 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   不按前缀猜尺寸或年份。
 - **规格基线**：原装性核对只覆盖已核对 Apple 技术规格页的机型，其余显示「无对照数据」，
   覆盖进度见 [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)。
+- **电池容量核对**：Apple 公布 Wh、电池只报 mAh，换算需要电池组额定电压。
+  本机不提供 `DesignVoltage` 时（Apple Silicon 多数如此）该项显示「不可用」，
+  不用固定常数折算——MacBook Air 是 2 芯约 7.6V、MacBook Pro 是 3 芯约 11.4V，用同一个值会整类误判。
+- **硬盘可更换性**：2016–2017 年机型的不同配置在硬盘形态上不一致，Apple 也未在技术规格页说明，
+  这类机型的存储容量核对标为「不做判断」，而不是猜测可换或板载。
 
 ## Changelog
+
+### 1.0.3
+- **机型规格基线补齐 Intel 全系**：新增 14 个标识符，覆盖 2016–2020 的 MacBook Pro 与 2017–2020 的
+  MacBook Air，共 22 个机型系列 / 28 个标识符，每条注明来源的 Apple 技术规格页
+  - 逐条核对 Apple 官方页面后录入，未核对的一律不入库；核对过程中发现官方机型标识文档里
+    `MacBookAir7,2` 同时对应 2017 与 2015 两代、`MacBookPro15,2` 同时对应 2018 与 2019 四口机型，
+    这类条目取两代规格并集（更宽松、不会误报）并在名称中标注年份
+- **修复电池容量核对会把整类机型误判的缺陷**：原实现固定用 11.45V 把 mAh 折算成 Wh，
+  而 MacBook Air 电池组是 2 芯约 7.6V，按 11.45V 折会虚高 50%，每一台原装 Air 都会被报「电池容量不符」。
+  现改为读取本机 `DesignVoltage`，取不到就显示「不可用」，不再用常数代替实测
+- **修复芯片双源核对会误报 Intel 机器**：`system_profiler` 的 `chip_type` 是「Intel Core i7」，
+  `sysctl` 的 `brand_string` 是「Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz」，直接做相等比较必然不等，
+  会把每一台 Intel Mac 判成篡改。现按归一化后的包含关系比对
+- **修复 4GB 内存被误判为非常见配置**：内存自检的档位表缺 4GB，而 MacBook Air 2015/2017 正是 4GB 起售
+- **修复报告结论与表格状态自相矛盾**：列表里出现 warning 行时，结论仍可能写「未发现需要关注的问题」。
+  现按「不一致」与「需确认」两级分别计数，结论与表格严格对应
+- 存储档位改为按标称容量比对（128/256/512/1TB…）并使用非对称窗口，避免不同机型的字节数差异造成漏判
+- Intel 机型的 GPU 核心数、未核实可换性的硬盘容量改为「不做判断」，不再输出可能误导的结论
 
 ### 1.0.2
 - 新增**SSD SMART 读取**：内建 SSD 的寿命消耗、备用块（含告警阈值）、上电时长、通电次数、

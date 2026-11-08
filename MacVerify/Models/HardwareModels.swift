@@ -137,6 +137,9 @@ struct BatterySnapshot {
     var cycleCount = 0
     var designCycleCount = 1000
     var temperature: Double? = nil
+    /// 电池组额定电压（V）。Intel 机型通常由 IORegistry 的 DesignVoltage 直接给出；
+    /// Apple Silicon 不提供该键，此时为 nil，不能假设成某个固定值。
+    var designVoltage: Double? = nil
     var voltage: Double = 0
     var amperage: Double = 0
     var isCharging = false

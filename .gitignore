@@ -20,6 +20,9 @@ xcuserdata/
 dist/
 *.dmg
 
+# Python
+__pycache__/
+
 # Tooling
 .workbuddy-ai/
 .claude/

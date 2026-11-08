@@ -67,7 +67,10 @@ enum ModelSpecCatalog {
 
     /// 已逐条对照 Apple 官方技术规格页核对过的机型。
     /// 同一标识符若对应多个年代且规格不同，取并集（更宽松，不会误报），并在 name 中注明年份。
-    private static let specs: [ModelSpec] = [
+    ///
+    /// 不设为 private：单元测试与 `Scripts/check_baseline.py` 需要遍历整张表做完整性自检
+    /// （重复标识符、来源缺失、容量倒挂等）。只读使用，不要在运行时修改。
+    static let specs: [ModelSpec] = [
         // MARK: - Intel MacBook Air
         // MacBookAir7,2 同时是「13-inch, 2017」与「13-inch, Early 2015」，
         // 两者都是 13.3″/1440×900/54Wh/128–512GB，仅内存档位不同（2017 只有 8GB，2015 有 4GB 或 8GB），

@@ -14,7 +14,7 @@
 
 ## 完成度总览
 
-上次更新：2026-11-08 · v1.0.5
+上次更新：2026-11-08 · v1.0.9
 
 | 领域 | 完成度 | 已完成 / 总数 | 说明 |
 | --- | --- | --- | --- |
@@ -24,8 +24,8 @@
 | D 原装性核对 | 100% | 12 / 12 | 41 个机型系列 / 57 个标识符，覆盖 Intel 2016–2020 与 Apple Silicon 全系 |
 | E 报告与导出 | 100% | 3 / 3 | Markdown + JSON + 命令行自检 |
 | F 外设与功能测试 | 100% | 5 / 5 | 无线 / 摄像头与音频 / USB 与雷雳 / 两次对比 / 报告指纹 |
-| G 工程化 | 20% | 1 / 5 | 打包流程已成型，缺 CI 与单元测试 |
-| **合计** | **约 88%** | **36 / 41** | |
+| G 工程化 | 100% | 5 / 5 | 89 个单元测试 + GitHub Actions + 基线自检 + 本地化查漏 |
+| **合计** | **约 98%** | **40 / 41** | 剩余 1 项为 C-05 外接盘 SMART 实测 |
 
 状态图例：`完成` / `进行中` / `待执行` / `不做`（附原因）
 
@@ -144,15 +144,46 @@ PROLED XDR 是 3024×1986（16 吋为 3456×2234 对 3472×2266），因此分�
 - **指纹只锁身份字段**：机型、序列号、芯片、内存、物理容量、面板、电池序列号。
   改电池循环不会让指纹变化（那是会漂移的使用痕迹），改序列号 / 换屏 / 换盘才会。
 
-## G 工程化（1 / 5）
+## G 工程化（5 / 5）
 
-| 编号 | 标题 | 状态 |
-| --- | --- | --- |
-| G-01 | Release 通用二进制 + DMG 打包流程 | 完成 |
-| G-02 | 抽取纯函数并加单元测试（EDID 解析 / 健康度 / 一致性 / 原装性） | 待执行 |
-| G-03 | GitHub Actions：构建 + 测试 + 产物 | 待执行 |
-| G-04 | 机型基线覆盖率自检脚本 | 待执行 |
-| G-05 | 本地化字符串查漏（防止漏 T() 包裹） | 待执行 |
+| 编号 | 标题 | 状态 | 落地 |
+| --- | --- | --- | --- |
+| G-01 | Release 通用二进制 + DMG 打包流程 | 完成 | 本地脚本流程 + CI `package` job |
+| G-02 | 单元测试 | 完成 | `Tests/MacVerifyTests/`，8 个文件 89 个用例 |
+| G-03 | GitHub Actions：构建 + 测试 + 产物 | 完成 | `.github/workflows/ci.yml`，verify / build / package 三段 |
+| G-04 | 机型基线覆盖率自检脚本 | 完成 | `Scripts/check_baseline.py` |
+| G-05 | 本地化字符串查漏 | 完成 | `Scripts/check_localization.py` |
+
+**跑测试与自检**
+
+```bash
+swift test --parallel                              # 89 个用例
+python3 Scripts/check_baseline.py                  # 基线完整性与覆盖率
+python3 Scripts/check_localization.py              # 漏翻中文
+python3 Scripts/check_baseline.py --strict         # 把「未建基线」也当失败
+```
+
+> 在受限环境（禁用了 sandbox-exec）里跑 SwiftPM 需要加 `--disable-sandbox`，
+> 否则编译 Package.swift 时报 `sandbox_apply: Operation not permitted`。
+> 同理，Xcode 命令行构建在干净 DerivedData 下需要 `OTHER_SWIFT_FLAGS="-disable-sandbox"`
+> 才能加载 SwiftUI 的宏插件。这两者都是环境限制，不是工程问题；CI 上不需要。
+
+**G 系列实现备注**（避免下次重走弯路）
+
+- **测试用 SPM 而不是 Xcode test target**：`Package.swift` 把 `MacVerify/` 编译成
+  `MacVerifyCore`（排除 `App/`，因为那里有 `@main`），`swift test` 在命令行与 CI 上直接可跑。
+  Xcode 工程仍是 App 的唯一构建方式，两者共读同一份源码，不会漂移。
+- **用例不依赖本机硬件**：全部用合成数据，CI 上没有电池、没有内建屏也跑得通。
+  只有报告的端到端用例读真实接口，且只断言结构、不断言具体数值。
+- **每个用例独立 UserDefaults 域**：`ScanHistoryStore` 改成可注入 `UserDefaults`。
+  并行执行时共用一个域会出现「单跑通过、`--parallel` 失败」的假象，第一次跑就踩到了。
+- **自检脚本要能抓错才算数**：`check_baseline.py` 用篡改副本验证过 6 类错误
+  （重复标识符、来源非 Apple 页、实际容量大于标注、档位窗口重叠、外形图缺失、分辨率与尺寸不匹配），
+  全部返回非零。`check_localization.py` 同样用样例验证过 4 类漏翻，并确认已包裹 / 嵌套 / 注释三类不误报。
+- **脚本自己也要防「假绿」**：解析到的条目数必须等于源码里的字面量数量，否则说明格式变了、正则漏抓，
+  直接报错而不是静默跳过。
+- **CI 的 tag 打包会校验版本一致**：`MARKETING_VERSION` 与 tag 不一致时直接失败，
+  避免出现「发了 v1.0.9，包里还是 1.0.8」这种只能靠人眼发现的问题。
 
 ## 明确不做
 

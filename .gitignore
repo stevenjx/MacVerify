@@ -3,6 +3,9 @@
 .AppleDouble
 .LSOverride
 
+# SwiftPM（测试与 CI 用）
+.build/
+
 # Xcode
 build/
 DerivedData/

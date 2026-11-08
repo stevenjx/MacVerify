@@ -135,7 +135,10 @@ struct BatterySnapshot {
     var remainingCapacity = 0
     var percent: Double = 0
     var cycleCount = 0
+    /// 循环次数是否真的读到了。不能靠「== 0」判断：全新电池本来就可能 0 次。
+    var cycleCountAvailable = false
     var designCycleCount = 1000
+    var designCycleCountAvailable = false
     var temperature: Double? = nil
     /// 电池组额定电压（V）。Intel 机型通常由 IORegistry 的 DesignVoltage 直接给出；
     /// Apple Silicon 不提供该键，此时为 nil，不能假设成某个固定值。

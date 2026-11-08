@@ -290,11 +290,11 @@ final class SystemInfoStore: ObservableObject {
         let table: [String: String] = [
             "spdisplays_built-in-liquid-retina-xdr": "Liquid Retina XDR",
             "spdisplays_built-in-retina": "Retina",
-            "spdisplays_built-in": "内建",
+            "spdisplays_built-in": T("内建", "Built-in"),
             "spdisplays_lcd": "LCD",
             "spdisplays_led": "LED",
             "spdisplays_crt": "CRT",
-            "spdisplays_projector": "投影"
+            "spdisplays_projector": T("投影", "Projector")
         ]
         if let name = table[token] { return name }
         if token.hasPrefix("spdisplays_") {

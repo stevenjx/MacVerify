@@ -38,16 +38,19 @@ enum ScanHistoryStore {
     static let storageKey = "macverify.scan.history"
     static let limit = 12
 
-    static func load() -> [ScanSnapshot] {
-        guard let data = UserDefaults.standard.data(forKey: storageKey),
+    // 存储实例可注入：App 用标准 UserDefaults，测试用独立 suite。
+    // 否则并行跑的用例会互相清库，出现「单跑通过、并行失败」的假象。
+
+    static func load(from store: UserDefaults = .standard) -> [ScanSnapshot] {
+        guard let data = store.data(forKey: storageKey),
               let list = try? JSONDecoder().decode([ScanSnapshot].self, from: data) else { return [] }
         return list
     }
 
-    static func save(_ list: [ScanSnapshot]) {
+    static func save(_ list: [ScanSnapshot], to store: UserDefaults = .standard) {
         let trimmed = Array(list.prefix(limit))
         guard let data = try? JSONEncoder().encode(trimmed) else { return }
-        UserDefaults.standard.set(data, forKey: storageKey)
+        store.set(data, forKey: storageKey)
     }
 
     /// 会随时间自然漂移的字段。它们变化不代表硬件状态发生了一次有意义的改变，
@@ -72,19 +75,19 @@ enum ScanHistoryStore {
     }
 
     /// 追加一份快照。与最新一份属于同一硬件状态时替换它，而不是堆一条近重复记录。
-    static func append(_ snapshot: ScanSnapshot) {
-        var list = load()
+    static func append(_ snapshot: ScanSnapshot, to store: UserDefaults = .standard) {
+        var list = load(from: store)
         if let newest = list.first, isSameState(newest, snapshot) {
             list[0] = snapshot
         } else {
             list.removeAll { isSameState($0, snapshot) }
             list.insert(snapshot, at: 0)
         }
-        save(list)
+        save(list, to: store)
     }
 
-    static func clear() {
-        UserDefaults.standard.removeObject(forKey: storageKey)
+    static func clear(_ store: UserDefaults = .standard) {
+        store.removeObject(forKey: storageKey)
     }
 }
 

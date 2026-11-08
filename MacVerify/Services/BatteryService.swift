@@ -82,8 +82,16 @@ final class BatteryStore: ObservableObject {
             snapshot.percent = Double(snapshot.remainingCapacity) / Double(snapshot.rawMaxCapacity) * 100
         }
 
-        snapshot.cycleCount = intValue(properties["CycleCount"]) ?? intValue(batteryData["CycleCount"]) ?? 0
-        snapshot.designCycleCount = intValue(properties["DesignCycleCount9C"]) ?? 1000
+        // 循环次数：读不到时保持 0 并置 available = false。
+        // 不能只靠「值是不是 0」判断——全新的电池本来就可能是 0 次。
+        if let cycles = intValue(properties["CycleCount"]) ?? intValue(batteryData["CycleCount"]) {
+            snapshot.cycleCount = cycles
+            snapshot.cycleCountAvailable = true
+        }
+        if let designCycles = intValue(properties["DesignCycleCount9C"]) {
+            snapshot.designCycleCount = designCycles
+            snapshot.designCycleCountAvailable = true
+        }
 
         if let voltage = intValue(properties["Voltage"]), voltage > 0 {
             snapshot.voltage = Double(voltage) / 1000

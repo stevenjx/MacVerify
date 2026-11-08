@@ -16,7 +16,9 @@ enum MacModelCatalog {
     ///    M4 Pro 或 M4 Max），标识符无法唯一确定，写死就会出错。芯片由硬件实时读取。
     /// 2. 只收录 Apple 官方支持文档列出的标识符。未收录的机型如实显示"未收录"，
     ///    不按前缀猜尺寸或年份——那对二手验机是误导。
-    private static let entries: [MacModelEntry] = [
+    /// 不设为 private：单元测试与 `Scripts/check_baseline.py` 要遍历整张表查重复标识符。
+    /// 只读使用，不要在其他地方改写。
+    static let entries: [MacModelEntry] = [
         // MacBook Air — Intel
         .init(identifier: "MacBookAir5,1", name: "MacBook Air (11-inch, Mid 2012)", image: "macbook_air_mid_2012", modelNumber: "A1465"),
         .init(identifier: "MacBookAir5,2", name: "MacBook Air (13-inch, Mid 2012)", image: "macbook_air_mid_2012", modelNumber: "A1466"),

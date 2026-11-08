@@ -72,7 +72,7 @@ MacVerify makes the evidence behind every claim inspectable.
 
 ## 安装 / Install
 
-1. 下载 `MacVerify-1.0.8.dmg`
+1. 下载 `MacVerify-1.0.9.dmg`
 2. 打开后将 `MacVerify.app` 拖入「应用程序」
 3. 首次打开如提示"无法验证开发者"，右键点击应用 → 打开
    （或执行 `xattr -dr com.apple.quarantine /Applications/MacVerify.app`）
@@ -120,6 +120,23 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   这类机型的存储容量核对标为「不做判断」，而不是猜测可换或板载。
 
 ## Changelog
+
+### 1.0.9 — 工程化：单元测试、CI、两张自检脚本
+- **89 个单元测试**（`Tests/MacVerifyTests/`，8 个文件）：EDID 解析、电池健康度与分级、
+  一致性核验、原装性核对、机型/规格表完整性、报告指纹、报告 JSON 结构、快照与差异。
+  用例全部基于合成数据，不依赖本机硬件，CI 上可直接跑
+- **GitHub Actions**（`.github/workflows/ci.yml`）：`verify`（单元测试 + 两个自检脚本）、
+  `build`（Xcode Debug 编译）、`package`（打 tag 时构建通用二进制 + DMG 并校验）。
+  打 tag 会强制比对 `MARKETING_VERSION` 与 tag，避免「发了新版本、包里还是旧版本」
+- **机型基线自检**（`Scripts/check_baseline.py`）：检查重复标识符、来源是否为 Apple 支持页、
+  电池额定值是否倒挂、存储匹配窗口是否重叠、外形图是否存在、分辨率与尺寸是否自相矛盾；
+  同时输出覆盖率（当前 41 个系列 / 57 个标识符 / 17 个机型暂无基线）
+- **本地化查漏**（`Scripts/check_localization.py`）：扫描漏掉 `T()` 的中文文案、
+  `T()` 缺英文参数、英文侧混入中文。扫描器能正确处理字符串插值、嵌套 `T()` 与注释
+- 修复两处真实缺陷：
+  - 报告里「循环次数」标为「不可用」却仍输出 `0`，违反「缺失即不可用」；现在读不到就输出 `null`
+  - 显示器的「内建 / 投影」是硬编码中文，英文界面下会漏出中文
+- `ScanHistoryStore` 支持注入 `UserDefaults`，并行测试不再互相清库
 
 ### 1.0.8 — 界面 P2：图表、首次引导、无障碍
 - **本轮多次测试的横向对比**：性能页在连续跑两次以上 CPU 测试后，出现条形图对比多核吞吐，
@@ -240,6 +257,21 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 - 修正 EDID 解析：校验 128 字节校验和，year=0 视为未知
 - 移除电池负载测试中编造的「每循环 0.03%」衰减模型
 - 统一全 App 电池健康度分级（唯一 `HealthGrade`）
+
+## 开发与测试 / Development
+
+```bash
+swift test --parallel                        # 89 个单元测试（SPM 目标，独立于 Xcode 工程）
+python3 Scripts/check_baseline.py            # 机型基线完整性与覆盖率
+python3 Scripts/check_localization.py        # 漏 T() 的中文文案
+python3 Scripts/check_baseline.py --strict   # 把「未建基线」也视为失败
+```
+
+`Package.swift` 只服务于测试与 CI：它把 `MacVerify/` 编译成 `MacVerifyCore` 模块（排除带 `@main` 的 `App/`），
+App 本体仍由 `MacVerify.xcodeproj` 构建，两者共读同一份源码。
+
+> 在禁用了 `sandbox-exec` 的受限环境里，SwiftPM 需要加 `--disable-sandbox`；
+> Xcode 命令行构建在干净 DerivedData 下需要 `OTHER_SWIFT_FLAGS="-disable-sandbox"` 才能加载 SwiftUI 宏插件。
 
 ## 开发规划 / Roadmap
 

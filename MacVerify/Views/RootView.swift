@@ -125,13 +125,13 @@ struct RootView: View {
             .padding(.bottom, 10)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 16) {
                     ForEach(SidebarItem.groups, id: \.title) { group in
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: 1) {
                             Text(group.title)
                                 .font(Typo.captionStrong)
-                                .foregroundColor(.secondary)
-                                .padding(.horizontal, 14)
+                                .foregroundColor(.secondary.opacity(0.85))
+                                .padding(.horizontal, 16)
                                 .padding(.bottom, 3)
 
                             ForEach(group.items) { item in
@@ -170,7 +170,7 @@ struct RootView: View {
                 .padding(.bottom, 10)
             }
         }
-        .frame(width: 216)
+        .frame(width: 208)
         .background(Color(NSColor.controlBackgroundColor))
     }
 
@@ -187,8 +187,8 @@ struct RootView: View {
                     .foregroundColor(.primary)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, Space.sm + 2)
-            .padding(.vertical, 6)
+            .padding(.horizontal, Space.sm + 1)
+            .padding(.vertical, 5)
             .background(
                 RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
                     .fill(isSelected ? Color.accentColor.opacity(0.14) : Color.clear)
@@ -202,7 +202,7 @@ struct RootView: View {
                         .padding(.vertical, 4)
                 }
             }
-            .padding(.horizontal, Space.sm)
+            .padding(.horizontal, Space.sm + 2)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -228,17 +228,19 @@ struct RootView: View {
     }
 }
 
-/// 统一的内容容器：滚动 + 内边距
+/// 统一的内容容器：滚动 + 内边距 + 最大宽度。
+/// 限宽是为了不让文字行横跨整个屏幕；窗口更宽时内容居中，两侧留出呼吸而不是把行拉长。
 struct PageScroll<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: Metrics.pageGap) {
                 content
             }
-            .padding(24)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Metrics.pagePadding)
+            .frame(maxWidth: Metrics.pageMaxWidth, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 }

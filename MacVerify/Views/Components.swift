@@ -1,50 +1,85 @@
 // Views/Components.swift
+//
+// 展示层基础件。改造的重点不是「好看」，而是让一屏能读到更多事实：
+// - 卡片的标题不再居中，统一左对齐 + 图标 + 右侧操作；
+// - 键值不再「标签在左、值飘到窗口最右」，改为标签定宽、值紧跟在后面，
+//   并且支持两列并排，屏幕宽度真正被用上；
+// - 状态用 7pt 圆点 + 文字表达，不再给每一行都套一个彩色胶囊。
 import SwiftUI
 import AppKit
 
 // MARK: - 容器
 
+/// 卡片。标题可选：给了标题就渲染一条带分隔线的卡头。
 struct Card<Content: View>: View {
-    var padding: CGFloat = Space.lg
+    var title: String? = nil
+    var icon: String? = nil
+    var trailing: AnyView? = nil
+    var padding: CGFloat = Metrics.cardPadding
     @ViewBuilder var content: Content
 
     var body: some View {
-        content
-            .padding(padding)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).fill(Surface.fill))
-            .overlay(
-                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                    .stroke(Surface.border, lineWidth: 1)
-            )
+        VStack(alignment: .leading, spacing: 0) {
+            if let title = title {
+                HStack(spacing: Space.xs + 2) {
+                    if let icon = icon {
+                        Image(systemName: icon)
+                            .font(Typo.icon(11, weight: .semibold))
+                            .foregroundColor(.secondary)
+                    }
+                    Text(title).font(Typo.title)
+                    Spacer(minLength: Space.sm)
+                    if let trailing = trailing { trailing }
+                }
+                .padding(.horizontal, padding)
+                .padding(.vertical, 9)
+
+                Rectangle()
+                    .fill(Surface.hairline)
+                    .frame(height: 1)
+            }
+
+            content
+                .padding(padding)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).fill(Surface.fill))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                .stroke(Surface.border, lineWidth: 1)
+        )
     }
 }
 
+/// 页面标题区：标题 + 说明 + 右侧操作。
 struct PageHeader: View {
     let title: String
     var subtitle: String? = nil
     var trailing: AnyView? = nil
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: Space.xs) {
+        HStack(alignment: .center, spacing: Space.md) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(Typo.display)
                 if let subtitle = subtitle {
-                    Text(subtitle).font(Typo.body).foregroundColor(.secondary)
+                    Text(subtitle).font(Typo.caption).foregroundColor(.secondary)
                 }
             }
-            Spacer()
+            Spacer(minLength: Space.md)
             if let trailing = trailing { trailing }
         }
+        .padding(.bottom, 2)
     }
 }
 
+/// 卡片内的分组标签（小号、大写、左对齐）。
 struct SectionHeader: View {
     let title: String
     var icon: String? = nil
 
     var body: some View {
-        HStack(spacing: Space.xs + 1) {
+        HStack(spacing: Space.xs) {
             if let icon = icon {
                 Image(systemName: icon).font(Typo.icon(10, weight: .semibold))
             }
@@ -56,53 +91,7 @@ struct SectionHeader: View {
     }
 }
 
-// MARK: - 行 / 徽标
-
-/// 数值的三种「没有值」情形，必须区分开：
-/// - normal：有值
-/// - unavailable：本机不提供（读不到），配减号，提示这是系统限制
-/// - absent：确实不存在（如没插 USB 设备、没有电池），配斜杠，提示这是事实
-/// 两者都不该显示成 0 或用空白糊过去。
-enum ValueState {
-    case normal, unavailable, absent
-}
-
-struct InfoRow: View {
-    let label: String
-    let value: String
-    var monospaced: Bool = false
-    var valueColor: Color = .primary
-    var isLast: Bool = false
-    var state: ValueState = .normal
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: Space.md) {
-                Text(label).font(Typo.body).foregroundColor(.secondary)
-                Spacer(minLength: Space.md)
-                if state == .normal {
-                    Text(value)
-                        .font(monospaced ? Typo.mono : Typo.value)
-                        .foregroundColor(valueColor)
-                        .multilineTextAlignment(.trailing)
-                        .textSelection(.enabled)
-                } else {
-                    HStack(spacing: Space.xs) {
-                        Image(systemName: state == .unavailable ? "minus.circle" : "slash.circle")
-                            .font(Typo.icon(10))
-                        Text(value).font(Typo.body)
-                    }
-                    .foregroundColor(StatusPalette.neutral)
-                }
-            }
-            // 13pt 正文 + 上下各 7，行高约 27；改造前是 9pt/13pt 混排，行高压到 22
-            .padding(.vertical, 7)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(label)：\(value)")
-            if !isLast { Divider().opacity(Surface.dividerOpacity) }
-        }
-    }
-}
+// MARK: - 状态
 
 enum BadgeLevel {
     case ok, warning, critical, neutral
@@ -137,55 +126,239 @@ enum BadgeLevel {
     }
 }
 
+/// 7pt 状态点。行内表达状态用它，比给每行套胶囊安静得多。
+struct StatusDot: View {
+    var level: BadgeLevel = .neutral
+    var size: CGFloat = 7
+
+    var body: some View {
+        Circle()
+            .fill(level.color)
+            .frame(width: size, height: size)
+    }
+}
+
 struct StatusBadge: View {
     let text: String
     var level: BadgeLevel = .neutral
 
     var body: some View {
-        HStack(spacing: Space.xs + 1) {
-            Image(systemName: level.symbol).font(Typo.icon(10, weight: .bold))
+        HStack(spacing: Space.xs) {
+            Image(systemName: level.symbol).font(Typo.icon(9, weight: .bold))
             Text(text).font(Typo.captionStrong)
         }
         .foregroundColor(level.color)
-        .padding(.horizontal, Space.sm)
-        .padding(.vertical, Space.xs)
-        .background(level.color.opacity(0.12))
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(level.color.opacity(0.10))
         .cornerRadius(Radius.badge)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(level.spoken)：\(text)")
     }
 }
 
-// MARK: - 指标
+// MARK: - 键值
 
+/// 数值的三种「没有值」情形，必须区分开：
+/// - normal：有值
+/// - unavailable：本机不提供（读不到），配减号，提示这是系统限制
+/// - absent：确实不存在（如没插 USB 设备、没有电池），配斜杠，提示这是事实
+/// 两者都不该显示成 0 或用空白糊过去。
+enum ValueState {
+    case normal, unavailable, absent
+}
+
+/// 一条事实：标签 + 值。值紧跟标签，不再被推到窗口右侧。
+struct Fact {
+    let label: String
+    let value: String
+    var mono: Bool = false
+    var color: Color = .primary
+    var state: ValueState = .normal
+
+    init(_ label: String, _ value: String, mono: Bool = false,
+         color: Color = .primary, state: ValueState = .normal) {
+        self.label = label
+        self.value = value
+        self.mono = mono
+        self.color = color
+        self.state = state
+    }
+}
+
+/// 多列事实表。列数根据内容长度选 2 列（默认）或 1 列。
+struct FactGrid: View {
+    let facts: [Fact]
+    var columns: Int = 2
+    var labelWidth: CGFloat = 104
+
+    private var gridColumns: [GridItem] {
+        Array(repeating: GridItem(.flexible(minimum: 160), spacing: Space.xl, alignment: .leading),
+              count: max(columns, 1))
+    }
+
+    var body: some View {
+        LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 1) {
+            ForEach(Array(facts.enumerated()), id: \.offset) { _, fact in
+                HStack(alignment: .firstTextBaseline, spacing: Space.sm) {
+                    Text(fact.label)
+                        .font(Typo.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .frame(width: labelWidth, alignment: .leading)
+                    valueText(fact)
+                    Spacer(minLength: 0)
+                }
+                .frame(height: Metrics.row)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(fact.label)：\(fact.value)")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func valueText(_ fact: Fact) -> some View {
+        if fact.state == .normal {
+            Text(fact.value)
+                .font(fact.mono ? Typo.mono : Typo.value)
+                .foregroundColor(fact.color)
+                .lineLimit(2)
+                .textSelection(.enabled)
+        } else {
+            HStack(spacing: 3) {
+                Image(systemName: fact.state == .unavailable ? "minus.circle" : "slash.circle")
+                    .font(Typo.icon(9))
+                Text(fact.value).font(Typo.body)
+            }
+            .foregroundColor(StatusPalette.neutral)
+            .lineLimit(1)
+        }
+    }
+}
+
+/// 单列键值行（带分隔线）。用于细节表、需要逐行阅读的地方。
+struct InfoRow: View {
+    let label: String
+    let value: String
+    var monospaced: Bool = false
+    var valueColor: Color = .primary
+    var isLast: Bool = false
+    var state: ValueState = .normal
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: Space.sm) {
+                Text(label).font(Typo.body).foregroundColor(.secondary)
+                Spacer(minLength: Space.sm)
+                if state == .normal {
+                    Text(value)
+                        .font(monospaced ? Typo.mono : Typo.value)
+                        .foregroundColor(valueColor)
+                        .multilineTextAlignment(.trailing)
+                        .textSelection(.enabled)
+                } else {
+                    HStack(spacing: Space.xs) {
+                        Image(systemName: state == .unavailable ? "minus.circle" : "slash.circle")
+                            .font(Typo.icon(10))
+                        Text(value).font(Typo.body)
+                    }
+                    .foregroundColor(StatusPalette.neutral)
+                }
+            }
+            .padding(.vertical, 5)
+            .frame(minHeight: Metrics.row)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(label)：\(value)")
+            if !isLast {
+                Rectangle().fill(Surface.hairline).frame(height: 1)
+            }
+        }
+    }
+}
+
+// MARK: - 指标块
+
+/// 紧凑指标块：标题一行、数值一行，高约 62。改造前是 110 高的空白块。
 struct StatTile: View {
     let title: String
     let value: String
+    var unit: String? = nil
+    /// 还没有数据（如未开始测试）。此时不用 20pt 显示一个破折号——
+    /// 那个字符在大字号下会变成一条粗黑杠，看着像加载失败。
+    var placeholder: Bool = false
     var detail: String? = nil
-    var color: Color = .accentColor
+    var color: Color = .secondary
     var icon: String? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.sm) {
-            HStack(spacing: Space.xs + 2) {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 4) {
                 if let icon = icon {
-                    Image(systemName: icon).font(Typo.icon(11, weight: .semibold)).foregroundColor(color)
+                    Image(systemName: icon).font(Typo.icon(9, weight: .semibold)).foregroundColor(color)
                 }
-                Text(title).font(Typo.caption).foregroundColor(.secondary)
+                Text(title).font(Typo.caption).foregroundColor(.secondary).lineLimit(1)
+                Spacer(minLength: 0)
             }
-            Text(value)
-                .font(Typo.metric)
-                .foregroundColor(.primary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            if placeholder {
+                Text(value)
+                    .font(Typo.title)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .frame(height: 24, alignment: .leading)
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text(value)
+                        .font(Typo.metric)
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    if let unit = unit {
+                        Text(unit).font(Typo.caption).foregroundColor(.secondary)
+                    }
+                }
+                .frame(height: 24, alignment: .leading)
+            }
             if let detail = detail {
-                Text(detail).font(Typo.caption).foregroundColor(.secondary).lineLimit(2)
+                Text(detail).font(Typo.caption).foregroundColor(.secondary).lineLimit(1)
             }
         }
-        .padding(Space.md)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).fill(Surface.fill))
-        .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).stroke(Surface.border, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.well))
+    }
+}
+
+/// 概览页的检查项：状态点 + 标题 + 结论，一行一条，可点进对应页面。
+struct CheckTile: View {
+    let title: String
+    let value: String
+    var level: BadgeLevel = .neutral
+    var badge: String? = nil
+
+    var body: some View {
+        HStack(spacing: Space.sm) {
+            StatusDot(level: level)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(Typo.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                Text(value)
+                    .font(Typo.body)
+                    .foregroundColor(level == .neutral ? .secondary : .primary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            if let badge = badge {
+                Text(badge).font(Typo.mono).foregroundColor(.secondary)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.well))
+        .contentShape(Rectangle())
     }
 }
 
@@ -196,26 +369,27 @@ struct RingGauge: View {
     var unit: String = "%"
     var color: Color = .accentColor
     var caption: String? = nil
+    var size: CGFloat = 96
 
     private var ratio: Double { total > 0 ? min(max(value / total, 0), 1) : 0 }
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: Space.xs + 2) {
             ZStack {
                 Circle().stroke(Color.primary.opacity(0.07), lineWidth: 7)
                 Circle()
                     .trim(from: 0, to: CGFloat(ratio))
                     .stroke(color, style: StrokeStyle(lineWidth: 7, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                VStack(spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 1) {
                     Text(unit == "%" ? String(format: "%.0f", value) : String(format: "%.1f", value))
                         .font(Typo.metric)
                     Text(unit).font(Typo.caption).foregroundColor(.secondary)
                 }
             }
-            .frame(width: 96, height: 96)
+            .frame(width: size, height: size)
 
-            Text(title).font(Typo.body).foregroundColor(.secondary)
+            Text(title).font(Typo.caption).foregroundColor(.secondary)
             if let caption = caption {
                 Text(caption).font(Typo.caption).foregroundColor(.secondary)
             }
@@ -241,7 +415,6 @@ struct LineChart: View {
             let upper = maxValue + padding
 
             ZStack {
-                // 网格
                 Path { path in
                     for index in 0...3 {
                         let y = size.height * CGFloat(index) / 3
@@ -264,7 +437,7 @@ struct LineChart: View {
                             }
                         }
                     }
-                    .stroke(color, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                    .stroke(color, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
 
                     Path { path in
                         for (index, value) in values.enumerated() {
@@ -281,7 +454,8 @@ struct LineChart: View {
                         path.addLine(to: CGPoint(x: size.width, y: size.height))
                         path.closeSubpath()
                     }
-                    .fill(LinearGradient(colors: [color.opacity(0.22), color.opacity(0.02)], startPoint: .top, endPoint: .bottom))
+                    .fill(LinearGradient(colors: [color.opacity(0.18), color.opacity(0.01)],
+                                         startPoint: .top, endPoint: .bottom))
                 } else {
                     Text(T("采样中…", "Sampling…"))
                         .font(Typo.caption)
@@ -301,13 +475,14 @@ struct NoticeBar: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: Space.sm) {
-            Image(systemName: level.symbol).font(Typo.icon(11, weight: .semibold)).foregroundColor(level.color)
-            // 提示条承载的是「不可用/无对照」这类关键说明，用正文号而不是小字，避免被跳过
-            Text(text).font(Typo.body).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+            Image(systemName: level.symbol).font(Typo.icon(10, weight: .semibold)).foregroundColor(level.color)
+                .padding(.top, 1)
+            Text(text).font(Typo.caption).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .padding(Space.md)
-        .background(level.color.opacity(0.08))
+        .padding(.horizontal, Space.md)
+        .padding(.vertical, Space.sm)
+        .background(level.color.opacity(0.07))
         .cornerRadius(Radius.control)
     }
 }
@@ -323,12 +498,12 @@ struct PrimaryButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: Space.xs + 2) {
-                if let icon = icon { Image(systemName: icon).font(Typo.icon(11, weight: .semibold)) }
+            HStack(spacing: Space.xs + 1) {
+                if let icon = icon { Image(systemName: icon).font(Typo.icon(10, weight: .semibold)) }
                 Text(title).font(Typo.bodyStrong)
             }
             .padding(.horizontal, Space.md + 2)
-            .padding(.vertical, 7)
+            .padding(.vertical, 5)
             .foregroundColor(.white)
             .background(color.opacity(enabled ? 1 : 0.4))
             .cornerRadius(Radius.control)
@@ -346,16 +521,47 @@ struct SecondaryButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: Space.xs + 2) {
-                if let icon = icon { Image(systemName: icon).font(Typo.icon(11, weight: .semibold)) }
+            HStack(spacing: Space.xs + 1) {
+                if let icon = icon { Image(systemName: icon).font(Typo.icon(10, weight: .semibold)) }
                 Text(title).font(Typo.body)
             }
             .padding(.horizontal, Space.md)
-            .padding(.vertical, 6)
+            .padding(.vertical, 5)
             .background(Color.primary.opacity(0.06))
             .cornerRadius(Radius.control)
         }
         .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.5)
+    }
+}
+
+/// 分段选择（测试时长、文件大小这类少量互斥选项）。
+struct SegmentedPicker<T: Hashable>: View {
+    let options: [T]
+    let title: (T) -> String
+    @Binding var selection: T
+    var enabled: Bool = true
+
+    var body: some View {
+        HStack(spacing: 1) {
+            ForEach(options, id: \.self) { option in
+                let isSelected = option == selection
+                Button(action: { selection = option }) {
+                    Text(title(option))
+                        .font(Typo.caption)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 3)
+                        .background(isSelected ? Surface.fill : Color.clear)
+                        .foregroundColor(isSelected ? .primary : .secondary)
+                        .cornerRadius(4)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(2)
+        .background(Color.primary.opacity(0.06))
+        .cornerRadius(Radius.badge)
         .disabled(!enabled)
         .opacity(enabled ? 1 : 0.5)
     }

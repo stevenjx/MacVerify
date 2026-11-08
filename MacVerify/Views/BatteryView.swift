@@ -1,4 +1,7 @@
 // Views/BatteryView.swift
+//
+// 电池：健康与信息并排，功率与历史各一行。
+// 改造前是仪表一行 + 三张竖卡，信息密度低、右侧空。
 import SwiftUI
 
 struct BatteryView: View {
@@ -6,6 +9,32 @@ struct BatteryView: View {
     @StateObject private var history = AuditHistoryStore.shared
 
     private var battery: BatterySnapshot { batteryStore.battery }
+
+    private var infoFacts: [Fact] {
+        [
+            Fact(T("序列号", "Serial"), battery.serialNumber, mono: true),
+            Fact(T("计量芯片", "Gauge chip"),
+                 battery.gaugeModel.isEmpty ? T("不可用", "Unavailable") : battery.gaugeModel,
+                 mono: true, state: battery.gaugeModel.isEmpty ? .unavailable : .normal),
+            Fact(T("设计容量", "Design capacity"),
+                 battery.designCapacity > 0 ? "\(battery.designCapacity) mAh" : T("不可用", "Unavailable"),
+                 state: battery.designCapacity > 0 ? .normal : .unavailable),
+            Fact(T("满充容量", "Full charge"),
+                 battery.healthCapacity > 0 ? "\(battery.healthCapacity) mAh" : T("不可用", "Unavailable"),
+                 state: battery.healthCapacity > 0 ? .normal : .unavailable),
+            Fact(T("剩余容量", "Remaining"),
+                 battery.remainingCapacity > 0 ? "\(battery.remainingCapacity) mAh" : T("无数据", "None"),
+                 state: battery.remainingCapacity > 0 ? .normal : .absent),
+            Fact(T("永久性故障", "Permanent failure"),
+                 battery.permanentFailure ? T("是", "Yes") : T("否", "No"),
+                 color: battery.permanentFailure ? StatusPalette.critical : .primary),
+            Fact(T("电压", "Voltage"), battery.voltage > 0 ? String(format: "%.2f V", battery.voltage) : "—"),
+            Fact(T("电流", "Current"), String(format: "%+.2f A", battery.amperage)),
+            Fact(T("温度", "Temperature"),
+                 battery.temperature.map { String(format: "%.1f °C", $0) } ?? T("该机型未公开", "Not exposed"),
+                 state: battery.temperature == nil ? .unavailable : .normal)
+        ]
+    }
 
     var body: some View {
         PageScroll {
@@ -18,15 +47,19 @@ struct BatteryView: View {
             )
 
             if battery.isPresent {
-                gaugeRow
-                detailCard
+                HStack(alignment: .top, spacing: Metrics.pageGap) {
+                    healthCard.frame(width: 330)
+                    Card(title: T("电池信息", "Battery info"), icon: "battery.100") {
+                        FactGrid(facts: infoFacts, columns: 2, labelWidth: 84)
+                    }
+                }
                 powerCard
                 historyCard
             } else {
                 Card {
-                    HStack(spacing: 12) {
-                        Image(systemName: "battery.0").font(Typo.display).foregroundColor(.secondary)
-                        VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: Space.md) {
+                        Image(systemName: "battery.0").font(Typo.icon(22)).foregroundColor(.secondary)
+                        VStack(alignment: .leading, spacing: 2) {
                             Text(T("未检测到电池", "No battery detected")).font(Typo.body)
                             Text(T("台式 Mac 或电池未连接时无法读取电池数据。", "Desktop Macs or a disconnected battery have no battery data."))
                                 .font(Typo.caption).foregroundColor(.secondary)
@@ -44,32 +77,55 @@ struct BatteryView: View {
         }
     }
 
-    // MARK: - 顶部仪表
+    // MARK: - 健康
 
-    private var gaugeRow: some View {
-        HStack(spacing: 16) {
-            RingGauge(
-                title: T("电池健康度", "Health"),
-                value: battery.healthPercent ?? 0,
-                total: 100,
-                unit: "%",
-                color: healthColor,
-                caption: batteryStore.healthCategory.text
-            )
-            .padding(.vertical, 10)
+    private var healthCard: some View {
+        Card(title: T("健康", "Health"), icon: "heart", trailing: AnyView(
+            StatusBadge(text: batteryStore.healthCategory.text, level: badgeLevel)
+        )) {
+            HStack(alignment: .center, spacing: Space.lg) {
+                RingGauge(
+                    title: T("最大容量", "Max capacity"),
+                    value: battery.healthPercent ?? 0,
+                    total: 100,
+                    unit: "%",
+                    color: healthColor,
+                    size: 84
+                )
 
-            StatTile(title: T("循环次数", "Cycle count"),
-                     value: "\(battery.cycleCount)",
-                     detail: T("设计上限 \(battery.designCycleCount) 次", "Design limit \(battery.designCycleCount)"),
-                     color: .accentColor, icon: "arrow.triangle.2.circlepath")
-            StatTile(title: T("当前电量", "Charge"),
-                     value: String(format: "%.0f%%", battery.percent),
-                     detail: battery.isCharging ? T("正在充电", "Charging") : (battery.isPluggedIn ? T("已接电源", "On power") : T("使用电池", "On battery")),
-                     color: StatusPalette.ok, icon: "bolt")
-            StatTile(title: T("满充容量", "Full charge"),
-                     value: battery.healthCapacity > 0 ? "\(battery.healthCapacity) mAh" : "—",
-                     detail: battery.designCapacity > 0 ? T("设计 \(battery.designCapacity) mAh", "Design \(battery.designCapacity) mAh") : nil,
-                     color: .purple, icon: "battery.100")
+                VStack(spacing: Space.sm) {
+                    HStack(spacing: Space.sm) {
+                        StatTile(title: T("循环次数", "Cycles"),
+                                 value: "\(battery.cycleCount)",
+                                 detail: T("设计上限 \(battery.designCycleCount)", "Limit \(battery.designCycleCount)"),
+                                 color: .secondary, icon: "arrow.triangle.2.circlepath")
+                        StatTile(title: T("当前电量", "Charge"),
+                                 value: String(format: "%.0f", battery.percent), unit: "%",
+                                 detail: battery.isCharging ? T("充电中", "Charging")
+                                        : (battery.isPluggedIn ? T("接电源", "On power") : T("用电池", "On battery")),
+                                 color: StatusPalette.ok, icon: "bolt")
+                    }
+                    HStack(spacing: Space.sm) {
+                        StatTile(title: T("设计容量", "Design"),
+                                 value: battery.designCapacity > 0 ? "\(battery.designCapacity)" : "—",
+                                 unit: battery.designCapacity > 0 ? "mAh" : nil,
+                                 color: .secondary, icon: "battery.25")
+                        StatTile(title: T("满充容量", "Full charge"),
+                                 value: battery.healthCapacity > 0 ? "\(battery.healthCapacity)" : "—",
+                                 unit: battery.healthCapacity > 0 ? "mAh" : nil,
+                                 color: .secondary, icon: "battery.100")
+                    }
+                }
+            }
+        }
+    }
+
+    private var badgeLevel: BadgeLevel {
+        switch battery.healthGrade {
+        case .excellent, .good: return .ok
+        case .fair: return .warning
+        case .service: return .critical
+        case .unknown: return .neutral
         }
     }
 
@@ -82,104 +138,94 @@ struct BatteryView: View {
         }
     }
 
-    // MARK: - 详情
-
-    private var detailCard: some View {
-        Card {
-            VStack(spacing: 0) {
-                SectionHeader(title: T("电池信息", "BATTERY INFO")).padding(.bottom, 8)
-                InfoRow(label: T("序列号", "Serial"), value: battery.serialNumber, monospaced: true)
-                InfoRow(label: T("计量芯片", "Gauge chip"), value: battery.gaugeModel.isEmpty ? T("不可用", "Unavailable") : battery.gaugeModel,
-                        monospaced: true, state: battery.gaugeModel.isEmpty ? .unavailable : .normal)
-                InfoRow(label: T("设计容量", "Design capacity"), value: battery.designCapacity > 0 ? "\(battery.designCapacity) mAh" : T("不可用", "Unavailable"),
-                        state: battery.designCapacity > 0 ? .normal : .unavailable)
-                InfoRow(label: T("当前满充容量", "Full charge capacity"), value: battery.healthCapacity > 0 ? "\(battery.healthCapacity) mAh" : T("不可用", "Unavailable"),
-                        state: battery.healthCapacity > 0 ? .normal : .unavailable)
-                InfoRow(label: T("剩余容量", "Remaining"), value: battery.remainingCapacity > 0 ? "\(battery.remainingCapacity) mAh" : T("无数据", "None"),
-                        state: battery.remainingCapacity > 0 ? .normal : .absent)
-                InfoRow(label: T("永久性故障", "Permanent failure"),
-                        value: battery.permanentFailure ? T("是", "Yes") : T("否", "No"),
-                        valueColor: battery.permanentFailure ? StatusPalette.critical : .primary)
-                InfoRow(label: T("电压", "Voltage"), value: battery.voltage > 0 ? String(format: "%.2f V", battery.voltage) : "—")
-                InfoRow(label: T("电流", "Current"), value: String(format: "%+.2f A", battery.amperage))
-                InfoRow(label: T("温度", "Temperature"),
-                        value: battery.temperature.map { String(format: "%.1f °C", $0) } ?? T("该机型未公开", "Not exposed on this model"), isLast: true)
-            }
-        }
-    }
+    // MARK: - 功率
 
     private var powerCard: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 10) {
-                SectionHeader(title: T("功率", "POWER"))
-                HStack(spacing: 12) {
-                    StatTile(title: T("瞬时功率", "Instant power"),
-                             value: String(format: "%.1f W", abs(battery.voltage * battery.amperage)),
-                             detail: T("电压 × 电流", "Voltage × current"),
-                             color: StatusPalette.warning, icon: "bolt.fill")
-                    if let resistance = batteryStore.resistanceMilliohms {
-                        StatTile(title: T("内阻估算", "Est. resistance"),
-                                 value: String(format: "%.0f mΩ", resistance),
-                                 detail: T("基于 \(batteryStore.resistanceSamples) 组 ΔV/ΔI 采样", "From \(batteryStore.resistanceSamples) ΔV/ΔI samples"),
-                                 color: resistance < 150 ? StatusPalette.ok : StatusPalette.warning, icon: "waveform.path")
-                    } else {
-                        StatTile(title: T("内阻估算", "Est. resistance"),
-                                 value: "—",
-                                 detail: T("需要电流变化才能计算", "Needs a current change to compute"),
-                                 color: .secondary, icon: "waveform.path")
-                    }
-                    StatTile(title: T("剩余时间", "Time remaining"),
-                             value: battery.timeToEmpty.map { "\($0 / 60) h \($0 % 60) m" } ?? "—",
-                             detail: battery.isPluggedIn ? T("充电至 \(battery.timeToFull ?? 0) 分钟", "Full in \(battery.timeToFull ?? 0) min") : T("系统估算", "System estimate"),
-                             color: .secondary, icon: "clock")
+        Card(title: T("功率", "Power"), icon: "bolt") {
+            HStack(spacing: Space.sm) {
+                StatTile(title: T("瞬时功率", "Instant power"),
+                         value: String(format: "%.1f", abs(battery.voltage * battery.amperage)), unit: "W",
+                         detail: T("电压 × 电流", "Voltage × current"),
+                         color: StatusPalette.warning, icon: "bolt.fill")
+                if let resistance = batteryStore.resistanceMilliohms {
+                    StatTile(title: T("内阻估算", "Est. resistance"),
+                             value: String(format: "%.0f", resistance), unit: "mΩ",
+                             detail: T("基于 \(batteryStore.resistanceSamples) 组 ΔV/ΔI 采样",
+                                       "From \(batteryStore.resistanceSamples) ΔV/ΔI samples"),
+                             color: resistance < 150 ? StatusPalette.ok : StatusPalette.warning,
+                             icon: "waveform.path")
+                } else {
+                    StatTile(title: T("内阻估算", "Est. resistance"), value: "—",
+                             placeholder: true,
+                             detail: T("需要电流变化才能计算", "Needs a current change"),
+                             color: .secondary, icon: "waveform.path")
                 }
+                StatTile(title: T("剩余时间", "Time remaining"),
+                         value: battery.timeToEmpty.map { "\($0 / 60) h \($0 % 60) m" } ?? "—",
+                         placeholder: battery.timeToEmpty == nil,
+                         detail: remainingTimeDetail,
+                         color: .secondary, icon: "clock")
+                StatTile(title: T("温度", "Temperature"),
+                         value: battery.temperature.map { String(format: "%.1f", $0) } ?? "—",
+                         unit: battery.temperature == nil ? nil : "°C",
+                         placeholder: battery.temperature == nil,
+                         detail: battery.temperature == nil ? T("该机型未公开", "Not exposed") : T("来自电池管理芯片", "From the gauge"),
+                         color: .secondary, icon: "thermometer")
             }
         }
     }
 
+    private var remainingTimeDetail: String? {
+        if battery.timeToEmpty != nil { return T("系统估算", "System estimate") }
+        if battery.isPluggedIn, let full = battery.timeToFull, full > 0 {
+            return T("充电至 \(full) 分钟", "Full in \(full) min")
+        }
+        return nil
+    }
+
+    // MARK: - 历史
+
     private var historyCard: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    SectionHeader(title: T("负载测试记录", "LOAD TEST HISTORY"))
-                    Spacer()
+        Card(title: T("负载测试记录", "Load test history"), icon: "clock.arrow.circlepath",
+             trailing: AnyView(
+                Group {
                     if !history.results.isEmpty {
                         SecondaryButton(title: T("清空", "Clear"), icon: "trash") { history.clear() }
                     }
                 }
-
-                if history.results.isEmpty {
-                    Text(T("暂无记录。运行一次电池负载测试后会保存在这里。", "No records yet. Run a battery load test to create one."))
-                        .font(Typo.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.vertical, 6)
-                } else {
-                    ForEach(history.results.prefix(5)) { result in
-                        HStack(spacing: 10) {
+             )) {
+            if history.results.isEmpty {
+                Text(T("暂无记录。运行一次电池负载测试后会保存在这里。", "No records yet. Run a battery load test to create one."))
+                    .font(Typo.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(history.results.prefix(5).enumerated()), id: \.element.id) { index, result in
+                        HStack(spacing: Space.sm) {
                             Text("\(result.score)")
-                                .font(Typo.metric)
-                                .frame(width: 32, height: 24)
+                                .font(Typo.captionStrong)
+                                .frame(width: 30, height: 20)
                                 .background(ScorePalette.color(result.score).opacity(0.12))
                                 .foregroundColor(ScorePalette.color(result.score))
-                                .cornerRadius(5)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(result.verdict).font(Typo.caption)
-                                Text(Format.dateTime(result.date))
-                                    .font(Typo.caption)
-                                    .foregroundColor(.secondary)
-                            }
+                                .cornerRadius(4)
+                            Text(result.verdict).font(Typo.caption)
                             Spacer()
                             if let health = result.healthPercent {
                                 Text(String(format: "%.1f%%", health))
                                     .font(Typo.mono)
                                     .foregroundColor(.secondary)
                             }
+                            Text(Format.dateTime(result.date))
+                                .font(Typo.caption)
+                                .foregroundColor(.secondary)
                         }
-                        .padding(.vertical, 4)
+                        .frame(height: Metrics.row)
+                        if index < min(history.results.count, 5) - 1 {
+                            Rectangle().fill(Surface.hairline).frame(height: 1)
+                        }
                     }
                 }
             }
         }
     }
-
 }

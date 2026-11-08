@@ -9,7 +9,7 @@ import PackageDescription
 
 let package = Package(
     name: "MacVerify",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS(.v12)],
     targets: [
         .target(
             name: "MacVerifyCore",

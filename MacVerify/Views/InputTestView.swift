@@ -108,7 +108,7 @@ struct TrackpadCanvas: NSViewRepresentable {
 struct InputTestView: View {
     @State private var rows: [[KeyCap]] = InputTestView.makeRows()
     @State private var pressedCodes = Set<UInt16>()
-    @State private var lastEventText = "—"
+    @State private var lastEventText = T("按下任意键开始检测", "Press any key to start")
     @State private var pressure: CGFloat = 0
     @State private var resetToken = 0
     @State private var monitor: Any?
@@ -137,20 +137,19 @@ struct InputTestView: View {
     // MARK: - 键盘
 
     private var keyboardCard: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    SectionHeader(title: T("键盘", "KEYBOARD"))
-                    Spacer()
+        Card(title: T("键盘", "Keyboard"), icon: "keyboard",
+             trailing: AnyView(
+                HStack(spacing: Space.sm) {
                     StatusBadge(text: T("已测 \(testedCount)/\(totalCount)", "\(testedCount)/\(totalCount) tested"),
                                 level: testedCount == totalCount ? .ok : .neutral)
                     SecondaryButton(title: T("重置", "Reset")) {
                         rows = Self.makeRows()
                         pressedCodes.removeAll()
-                        lastEventText = "—"
+                        lastEventText = T("按下任意键开始检测", "Press any key to start")
                     }
                 }
-
+             )) {
+            VStack(alignment: .leading, spacing: Space.sm) {
                 GeometryReader { geometry in
                     let width = geometry.size.width
                     VStack(spacing: keySpacing) {
@@ -258,17 +257,16 @@ struct InputTestView: View {
     // MARK: - 触控板
 
     private var trackpadCard: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    SectionHeader(title: T("触控板", "TRACKPAD"))
-                    Spacer()
+        Card(title: T("触控板", "Trackpad"), icon: "rectangle.and.hand.point.up.left",
+             trailing: AnyView(
+                HStack(spacing: Space.sm) {
                     Text(T("压力 \(Int(pressure * 100))%", "Pressure \(Int(pressure * 100))%"))
                         .font(Typo.mono)
                         .foregroundColor(pressure > 0.05 ? .accentColor : .secondary)
                     SecondaryButton(title: T("清空", "Clear")) { resetToken += 1 }
                 }
-
+             )) {
+            VStack(alignment: .leading, spacing: Space.sm) {
                 TrackpadCanvas(resetToken: $resetToken) { value in
                     pressure = value
                 }

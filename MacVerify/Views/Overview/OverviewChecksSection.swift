@@ -1,7 +1,7 @@
 // Views/Overview/OverviewChecksSection.swift
 //
-// 关键检查项。改造前是固定顺序的网格，异常项藏在中间；
-// 现在按严重度排序：不一致 → 需确认 → 通过 → 不可用。
+// 关键检查项：8 项压成 3 列网格，异常项按严重度排在最前。
+// 改造前是两列大卡、每项两行字，8 项占掉近半屏。
 import SwiftUI
 
 struct CheckItem {
@@ -16,48 +16,33 @@ struct OverviewChecksSection: View {
     let battery: BatterySnapshot
     @Binding var selection: SidebarItem
 
+    private let columns = [
+        GridItem(.flexible(), spacing: Space.sm),
+        GridItem(.flexible(), spacing: Space.sm),
+        GridItem(.flexible(), spacing: Space.sm)
+    ]
+
     var body: some View {
-        VStack(alignment: .leading, spacing: Space.sm + 2) {
-            SectionHeader(title: T("关键检查项", "KEY CHECKS"))
-
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: Space.md),
-                                GridItem(.flexible(), spacing: Space.md)],
-                      spacing: Space.md) {
+        Card(title: T("关键检查", "Key checks"),
+             icon: "checklist",
+             trailing: AnyView(
+                Text(T("点按可跳转到对应页面", "Tap to open the matching page"))
+                    .font(Typo.caption)
+                    .foregroundColor(.secondary)
+             )) {
+            LazyVGrid(columns: columns, spacing: Space.sm) {
                 ForEach(Array(sortedItems.enumerated()), id: \.offset) { _, item in
-                    row(item)
+                    Button(action: {
+                        if let target = item.target { selection = target }
+                    }) {
+                        CheckTile(title: item.title, value: item.value, level: item.level)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(item.title)：\(item.value)")
+                    .accessibilityHint(item.target == nil ? "" : T("打开对应页面", "Opens the matching page"))
                 }
             }
         }
-    }
-
-    private func row(_ item: CheckItem) -> some View {
-        Button(action: {
-            if let target = item.target { selection = target }
-        }) {
-            HStack(spacing: Space.sm) {
-                Image(systemName: item.level.symbol)
-                    .font(Typo.icon(13))
-                    .foregroundColor(item.level.color)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.title).font(Typo.bodyStrong).foregroundColor(.primary)
-                    Text(item.value).font(Typo.body).foregroundColor(.secondary).lineLimit(1)
-                }
-                Spacer(minLength: 0)
-                if item.target != nil {
-                    Image(systemName: "chevron.right")
-                        .font(Typo.icon(10, weight: .bold))
-                        .foregroundColor(.secondary.opacity(0.6))
-                }
-            }
-            .padding(Space.md)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).fill(Surface.fill))
-            .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).stroke(Surface.border, lineWidth: 1))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(item.title)：\(item.value)")
-        .accessibilityHint(item.target == nil ? "" : T("打开对应页面", "Opens the matching page"))
     }
 
     // MARK: - 数据

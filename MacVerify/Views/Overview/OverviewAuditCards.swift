@@ -1,7 +1,7 @@
 // Views/Overview/OverviewAuditCards.swift
 //
-// 一致性核验 + 原装性核对。两张卡结构相同，共用一个行渲染器，
-// 改造前是两段几乎一样的复制粘贴（各 40 行）。
+// 一致性核验 + 原装性核对。两张卡并排，行内只留「结论 + 一句依据」，
+// 依据超过一行就省略——完整措辞在导出的报告里，这里不重复堆字。
 import SwiftUI
 
 /// 把两种不同的 finding 类型归一成一种可渲染的行
@@ -20,11 +20,12 @@ struct OverviewAuditCards: View {
         let consistency = ConsistencyAudit.run(info: info)
         let originality = OriginalityCheck.run(info: info, battery: battery)
 
-        VStack(spacing: Space.lg) {
+        HStack(alignment: .top, spacing: Metrics.pageGap) {
             card(
-                title: T("一致性核验", "CONSISTENCY"),
-                explanation: T("同一项事实分别从系统报告与内核接口读取，两路结果必须一致。改机型、刷序列号会在这里暴露。",
-                               "Each fact is read from two independent sources — the system report and the kernel interface. Tampered model or serial data shows up here."),
+                title: T("一致性核验", "Consistency"),
+                icon: "arrow.left.arrow.right",
+                explanation: T("同一事实从系统报告与内核接口各读一次，两路必须一致。",
+                               "Each fact is read from the system report and the kernel; both must agree."),
                 rows: consistency.map {
                     AuditRow(title: $0.title, detail: $0.detail, level: $0.state.badgeLevel)
                 },
@@ -39,9 +40,10 @@ struct OverviewAuditCards: View {
             )
 
             card(
-                title: T("原装性核对", "ORIGINALITY"),
-                explanation: T("屏幕、内存、存储、电池规格与 Apple 官方技术规格比对。不匹配只代表「与官方规格不符」，不代表一定被改装过——维修换板也会造成同样结果。",
-                               "Display, memory, storage and battery are compared against Apple's published tech specs. A mismatch means \"not matching Apple's spec\", not proof of modification — a board-level repair would look the same."),
+                title: T("原装性核对", "Originality"),
+                icon: "checkmark.seal",
+                explanation: T("对照 Apple 官方规格。不匹配只说明与官方规格不符，不等于被改装。",
+                               "Compared with Apple's published specs. A mismatch is not proof of modification."),
                 rows: originality.map {
                     AuditRow(title: $0.title, detail: $0.detail, level: $0.state.badgeLevel)
                 },
@@ -53,48 +55,50 @@ struct OverviewAuditCards: View {
 
     // MARK: - 局部
 
-    private func card(title: String, explanation: String, rows: [AuditRow],
+    private func card(title: String, icon: String, explanation: String, rows: [AuditRow],
                       badge: (text: String, level: BadgeLevel), footer: String?) -> some View {
-        Card {
-            VStack(alignment: .leading, spacing: Space.sm + 2) {
-                HStack {
-                    SectionHeader(title: title)
-                    Spacer()
-                    StatusBadge(text: badge.text, level: badge.level)
-                }
-
+        Card(title: title, icon: icon, trailing: AnyView(
+            StatusBadge(text: badge.text, level: badge.level)
+        )) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(explanation)
-                    .font(Typo.body)
+                    .font(Typo.caption)
                     .foregroundColor(.secondary)
+                    .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
+                    .padding(.bottom, Space.xs + 2)
 
                 ForEach(rows) { row in
                     HStack(alignment: .top, spacing: Space.sm) {
-                        Image(systemName: row.level.symbol)
-                            .font(Typo.icon(11))
-                            .foregroundColor(row.level.color)
-                            .padding(.top, 1)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(row.title).font(Typo.bodyStrong)
+                        StatusDot(level: row.level, size: 6)
+                            .padding(.top, 5)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(row.title)
+                                .font(Typo.captionStrong)
+                                .lineLimit(1)
                             Text(row.detail)
                                 .font(Typo.caption)
                                 .foregroundColor(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
                         }
                         Spacer(minLength: 0)
                     }
-                    .padding(.vertical, 2)
+                    .padding(.vertical, 3)
+                    .help(row.detail)
                 }
 
                 if let footer = footer {
                     Text(footer)
                         .font(Typo.mono)
                         .foregroundColor(.secondary)
+                        .lineLimit(2)
                         .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, Space.xs)
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 
     private func badge(risks: Int, notices: Int, okText: String,
@@ -122,7 +126,7 @@ struct OverviewAuditCards: View {
     /// 基线名称用「覆盖」表述：同一标识符可能跨两代，直接写成机器名会让人误以为识别冲突
     private var baselineText: String? {
         guard let spec = ModelSpecCatalog.spec(for: info.modelIdentifier) else { return nil }
-        return T("对照基线覆盖 \(spec.name) · \(ModelSpecCatalog.coverageText) · \(spec.source)",
-                 "Baseline covers \(spec.name) · \(ModelSpecCatalog.coverageText) · \(spec.source)")
+        return T("对照基线覆盖 \(spec.name) · \(ModelSpecCatalog.coverageText)",
+                 "Baseline covers \(spec.name) · \(ModelSpecCatalog.coverageText)")
     }
 }

@@ -1,6 +1,7 @@
 // Views/Overview/OverviewUsageSection.swift
 //
 // 使用强度：崩溃记录、SSD 磨损、累计写入。只在有数据时出现。
+// 改造前是三个裸数字挂在一张高卡里，右侧空着；现在用紧凑指标块横向铺开。
 import SwiftUI
 
 struct OverviewUsageSection: View {
@@ -14,39 +15,30 @@ struct OverviewUsageSection: View {
 
     var body: some View {
         if hasContent {
-            Card {
-                VStack(alignment: .leading, spacing: Space.md) {
-                    SectionHeader(title: T("使用强度", "USAGE"))
-                    HStack(alignment: .top, spacing: Space.xl) {
-                        if info.panicLogCount > 0 {
-                            metric(T("崩溃日志", "Panic logs"), "\(info.panicLogCount)", color: .primary) {
-                                if let date = info.lastPanicDate {
-                                    Text(Format.dateTime(date))
-                                        .font(Typo.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                        }
-                        if let smartUsed = info.storage.smartPercentageUsed {
-                            metric(T("SSD 已用寿命", "SSD wear"), "\(smartUsed)%",
-                                   color: smartUsed > 50 ? StatusPalette.warning : .primary)
-                        }
-                        if info.storage.statisticsAvailable {
-                            metric(T("累计写入", "Total written"), Format.bytes(info.storage.writtenBytes), color: .primary)
-                        }
-                        Spacer()
+            Card(title: T("使用强度", "Usage"), icon: "gauge.medium") {
+                HStack(spacing: Space.sm) {
+                    if info.panicLogCount > 0 {
+                        StatTile(title: T("崩溃日志", "Panic logs"),
+                                 value: "\(info.panicLogCount)",
+                                 detail: info.lastPanicDate.map { Format.dateTime($0) },
+                                 color: StatusPalette.warning,
+                                 icon: "exclamationmark.triangle")
+                    }
+                    if let smartUsed = info.storage.smartPercentageUsed {
+                        StatTile(title: T("SSD 已用寿命", "SSD wear"),
+                                 value: "\(smartUsed)", unit: "%",
+                                 color: smartUsed > 50 ? StatusPalette.warning : .secondary,
+                                 icon: "internaldrive")
+                    }
+                    if info.storage.statisticsAvailable {
+                        StatTile(title: T("累计写入", "Total written"),
+                                 value: Format.bytes(info.storage.writtenBytes),
+                                 detail: T("卷级统计，格式化后清零", "Volume level; resets on erase"),
+                                 color: .secondary,
+                                 icon: "arrow.down.doc")
                     }
                 }
             }
-        }
-    }
-
-    private func metric<Detail: View>(_ title: String, _ value: String, color: Color,
-                                      @ViewBuilder detail: () -> Detail = { EmptyView() }) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title).font(Typo.caption).foregroundColor(.secondary)
-            Text(value).font(Typo.metric).foregroundColor(color)
-            detail()
         }
     }
 }

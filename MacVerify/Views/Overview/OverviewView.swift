@@ -26,8 +26,8 @@ struct OverviewView: View {
 
             verdictCard
             OverviewIdentityCard(info: info)
-            OverviewAuditCards(info: info, battery: battery.battery)
             OverviewChecksSection(info: info, battery: battery.battery, selection: $selection)
+            OverviewAuditCards(info: info, battery: battery.battery)
             OverviewUsageSection(info: info)
 
             NoticeBar(

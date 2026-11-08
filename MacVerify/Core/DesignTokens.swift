@@ -1,14 +1,14 @@
 // Core/DesignTokens.swift
 //
-// 界面令牌：字号、间距、圆角、状态色。
+// 界面令牌：字号、间距、圆角、表面、状态色。
 //
-// 为什么要有这一层：改造前全项目出现 16 种字号（9–38），同一个「不一致」的状态色
-// 在三个文件里各写一遍。改一处会漏两处，而且 9–10pt 的中文在验机场景（弱光、摊位上）看不清。
-//
-// 规则：
-// - 只有 5 档字号：26 / 20 / 15 / 13 / 11，正文不再低于 13pt，说明文字不再低于 11pt。
-// - 状态色只在这里定义一次，浅色/深色各一套，保证小字对比度 ≥ 4.5:1。
-// - 间距一律 4 的倍数。
+// 这一版的原则是「密度优先」：验机是快速扫读，不是阅读文档。
+// 改造前每页都是单列长条、行高 27、值被推到窗口最右侧，屏幕右侧一片空白，
+// 所以看起来既松散又不专业。现在：
+// - 字号仍只有 5 档（22 / 20 / 13 / 13 / 11），但标题从 26 bold 收到 22 semibold，
+//   层级靠字重与颜色拉开，而不是靠不断加大字号；
+// - 行高 26、卡片内边距 14、页面间距 12，信息密度接近 macOS 系统信息;
+// - 所有卡片的区块标题一律左对齐（改造前因为 VStack 默认居中，标题飘在卡片中间）。
 import SwiftUI
 import AppKit
 
@@ -16,11 +16,11 @@ import AppKit
 
 enum Typo {
     /// 页面主标题
-    static let display = Font.system(size: 26, weight: .bold)
-    /// 大号指标数字（仪表盘、统计块）
+    static let display = Font.system(size: 22, weight: .semibold)
+    /// 指标数字（仪表盘、统计块）
     static let metric = Font.system(size: 20, weight: .semibold, design: .rounded).monospacedDigit()
     /// 卡片标题、区块标题
-    static let title = Font.system(size: 15, weight: .semibold)
+    static let title = Font.system(size: 13, weight: .semibold)
     /// 正文
     static let body = Font.system(size: 13)
     /// 正文强调（行标题）
@@ -39,22 +39,35 @@ enum Typo {
     }
 }
 
-// MARK: - 间距与圆角
+// MARK: - 间距、圆角、密度
 
 enum Space {
     static let xs: CGFloat = 4
     static let sm: CGFloat = 8
-    static let md: CGFloat = 12
-    static let lg: CGFloat = 16
-    static let xl: CGFloat = 24
-    static let xxl: CGFloat = 32
+    static let md: CGFloat = 10
+    static let lg: CGFloat = 14
+    static let xl: CGFloat = 20
+    static let xxl: CGFloat = 28
 }
 
 enum Radius {
-    static let card: CGFloat = 10
-    static let control: CGFloat = 7
-    static let badge: CGFloat = 6
-    static let tile: CGFloat = 5
+    static let card: CGFloat = 8
+    static let control: CGFloat = 6
+    static let badge: CGFloat = 5
+    static let tile: CGFloat = 6
+}
+
+enum Metrics {
+    /// 页面内容最大宽度。窗口拉很宽时不让文字行横跨整个屏幕
+    static let pageMaxWidth: CGFloat = 1020
+    /// 页面外边距
+    static let pagePadding: CGFloat = 20
+    /// 页面内卡片之间
+    static let pageGap: CGFloat = 12
+    /// 卡片内边距
+    static let cardPadding: CGFloat = 14
+    /// 键值行高度（含上下留白）
+    static let row: CGFloat = 26
 }
 
 // MARK: - 状态色
@@ -82,16 +95,35 @@ enum StatusPalette {
     }
 }
 
-// MARK: - 卡片外观
+// MARK: - 表面
 
 enum Surface {
+    /// 窗口底色：比卡片略深，卡片才「浮」得起来
+    static let page = Color(NSColor.windowBackgroundColor)
+    /// 卡片底色
     static let fill = Color(NSColor.controlBackgroundColor)
+
+    /// 内嵌块（指标块、代码块）：比卡片再沉一档
+    static var well: Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            return isDark ? NSColor.white.withAlphaComponent(0.05) : NSColor.black.withAlphaComponent(0.025)
+        })
+    }
 
     /// 浅色模式用淡描边，深色模式下描边几乎看不见，改为轻微提亮
     static var border: Color {
         Color(nsColor: NSColor(name: nil) { appearance in
             let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            return isDark ? NSColor.white.withAlphaComponent(0.10) : NSColor.black.withAlphaComponent(0.07)
+            return isDark ? NSColor.white.withAlphaComponent(0.11) : NSColor.black.withAlphaComponent(0.08)
+        })
+    }
+
+    /// 卡片内的分隔线
+    static var hairline: Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            return isDark ? NSColor.white.withAlphaComponent(0.07) : NSColor.black.withAlphaComponent(0.06)
         })
     }
 

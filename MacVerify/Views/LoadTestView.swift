@@ -1,4 +1,6 @@
 // Views/LoadTestView.swift
+//
+// 负载测试：设置与说明并排，图表左右并列，结果与记录各一行。
 import SwiftUI
 
 struct LoadTestView: View {
@@ -21,8 +23,11 @@ struct LoadTestView: View {
                 )
             }
 
-            controlCard
-            explainCard
+            HStack(alignment: .top, spacing: Metrics.pageGap) {
+                controlCard.frame(width: 380)
+                explainCard
+            }
+
             if engine.isRunning || !engine.voltageSeries.isEmpty {
                 liveCard
             }
@@ -40,30 +45,19 @@ struct LoadTestView: View {
     }
 
     private var controlCard: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: T("测试设置", "SETUP"))
-
-                HStack(spacing: 10) {
-                    ForEach([180, 600, 1200], id: \.self) { seconds in
-                        Button(action: { duration = seconds }) {
-                            Text(durationLabel(seconds))
-                                .font(Typo.caption)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(duration == seconds ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.05))
-                                .foregroundColor(duration == seconds ? .accentColor : .primary)
-                                .cornerRadius(6)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(engine.isRunning)
-                    }
-                    Spacer()
-
+        Card(title: T("测试设置", "Setup"), icon: "slider.horizontal.3") {
+            VStack(alignment: .leading, spacing: Space.sm) {
+                HStack(spacing: Space.sm) {
+                    SegmentedPicker(options: [180, 600, 1200],
+                                    title: durationLabel,
+                                    selection: $duration,
+                                    enabled: !engine.isRunning)
+                    Spacer(minLength: 0)
                     if engine.isRunning {
                         SecondaryButton(title: T("停止", "Stop"), icon: "stop.fill") { engine.stop() }
                     } else {
-                        PrimaryButton(title: T("开始测试", "Start test"), icon: "play.fill", enabled: batteryStore.battery.isPresent) {
+                        PrimaryButton(title: T("开始测试", "Start test"), icon: "play.fill",
+                                      enabled: batteryStore.battery.isPresent) {
                             engine.start(seconds: duration)
                         }
                     }
@@ -71,8 +65,8 @@ struct LoadTestView: View {
 
                 if engine.isRunning {
                     ProgressView(value: engine.progress).progressViewStyle(.linear)
-                    Text(engine.status).font(Typo.mono).foregroundColor(.secondary)
                 }
+                Text(engine.status).font(Typo.caption).foregroundColor(.secondary)
             }
         }
         .onDisappear {
@@ -89,25 +83,27 @@ struct LoadTestView: View {
     }
 
     private var explainCard: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 10) {
-                SectionHeader(title: T("测试内容", "WHAT IT MEASURES"))
-                explainRow(icon: "battery.100", text: T("满充容量与设计容量的比值，以及循环次数是否与衰减吻合。",
-                                                       "Full charge capacity against design capacity, and whether cycle count matches the wear."))
-                explainRow(icon: "bolt", text: T("持续负载下的电压下沉幅度，可反映电池内阻。仅在电池供电时有效。",
-                                                 "Voltage sag under sustained load, which reflects internal resistance. Only valid on battery power."))
-                explainRow(icon: "thermometer", text: T("电池温升。部分机型不提供温度传感器，该项会标记为不可用。",
-                                                        "Battery temperature rise. Some models do not expose a sensor; the item is then marked unavailable."))
+        Card(title: T("测试内容", "What it measures"), icon: "list.bullet") {
+            VStack(alignment: .leading, spacing: Space.sm) {
+                explainRow(icon: "battery.100",
+                           text: T("满充容量与设计容量的比值，以及循环次数是否与衰减吻合。",
+                                   "Full charge capacity against design capacity, and whether cycle count matches the wear."))
+                explainRow(icon: "bolt",
+                           text: T("持续负载下的电压下沉幅度，可反映电池内阻。仅在电池供电时有效。",
+                                   "Voltage sag under sustained load, which reflects internal resistance. Only valid on battery power."))
+                explainRow(icon: "thermometer",
+                           text: T("电池温升。部分机型不提供温度传感器，该项会标记为不可用。",
+                                   "Battery temperature rise. Some models do not expose a sensor; the item is then marked unavailable."))
             }
         }
     }
 
     private func explainRow(icon: String, text: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: Space.sm) {
             Image(systemName: icon)
-                .font(Typo.caption)
+                .font(Typo.icon(10))
                 .foregroundColor(.secondary)
-                .frame(width: 16)
+                .frame(width: 14)
             Text(text)
                 .font(Typo.caption)
                 .foregroundColor(.secondary)
@@ -117,27 +113,24 @@ struct LoadTestView: View {
     }
 
     private var liveCard: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    SectionHeader(title: T("实时采样", "LIVE SAMPLES"))
-                    Spacer()
-                    Text(T("\(engine.samples) 个采样点", "\(engine.samples) samples"))
-                        .font(Typo.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
+        Card(title: T("实时采样", "Live samples"), icon: "waveform.path.ecg",
+             trailing: AnyView(
+                Text(T("\(engine.samples) 个采样点", "\(engine.samples) samples"))
+                    .font(Typo.caption)
+                    .foregroundColor(.secondary)
+             )) {
+            HStack(alignment: .top, spacing: Space.xl) {
+                VStack(alignment: .leading, spacing: Space.xs) {
                     Text(T("电压 (V)", "Voltage (V)")).font(Typo.caption).foregroundColor(.secondary)
                     LineChart(values: engine.voltageSeries, color: Color.accentColor)
-                        .frame(height: 110)
+                        .frame(height: 100)
                 }
-
                 if !engine.temperatureSeries.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(T("电池温度 (°C)", "Battery temperature (°C)")).font(Typo.caption).foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: Space.xs) {
+                        Text(T("电池温度 (°C)", "Battery temperature (°C)"))
+                            .font(Typo.caption).foregroundColor(.secondary)
                         LineChart(values: engine.temperatureSeries, color: StatusPalette.warning)
-                            .frame(height: 90)
+                            .frame(height: 100)
                     }
                 }
             }
@@ -145,72 +138,77 @@ struct LoadTestView: View {
     }
 
     private func resultCard(_ result: BatteryAuditResult) -> some View {
-        Card {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .center, spacing: 16) {
+        Card(title: T("本次结果", "This run"), icon: "checklist",
+             trailing: AnyView(
+                StatusBadge(text: result.verdict, level: result.score >= 85 ? .ok : (result.score >= 70 ? .warning : .critical))
+             )) {
+            VStack(alignment: .leading, spacing: Space.sm) {
+                HStack(alignment: .center, spacing: Space.md) {
                     ZStack {
-                        Circle().stroke(Color.primary.opacity(0.08), lineWidth: 6)
+                        Circle().stroke(Color.primary.opacity(0.08), lineWidth: 5)
                         Circle()
                             .trim(from: 0, to: CGFloat(result.score) / 100)
-                            .stroke(ScorePalette.color(result.score), style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                            .stroke(ScorePalette.color(result.score), style: StrokeStyle(lineWidth: 5, lineCap: .round))
                             .rotationEffect(.degrees(-90))
                         Text("\(result.score)")
                             .font(Typo.metric)
                     }
-                    .frame(width: 72, height: 72)
+                    .frame(width: 58, height: 58)
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(result.verdict).font(Typo.bodyStrong)
-                        Text(T("测试时长 \(Int(result.duration)) 秒 · \(result.findings.count) 项检查",
-                               "\(Int(result.duration))s · \(result.findings.count) checks"))
-                            .font(Typo.caption)
-                            .foregroundColor(.secondary)
-                    }
+                    Text(T("测试时长 \(Int(result.duration)) 秒 · \(result.findings.count) 项检查",
+                           "\(Int(result.duration))s · \(result.findings.count) checks"))
+                        .font(Typo.caption)
+                        .foregroundColor(.secondary)
                     Spacer()
                 }
 
-                ForEach(result.findings) { finding in
-                    HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: finding.status.symbol)
-                            .font(Typo.caption)
-                            .foregroundColor(finding.status.color)
-                            .padding(.top, 1)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(finding.title).font(Typo.caption)
-                            Text(finding.detail).font(Typo.caption).foregroundColor(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                VStack(spacing: 0) {
+                    ForEach(Array(result.findings.enumerated()), id: \.element.id) { index, finding in
+                        HStack(alignment: .top, spacing: Space.sm) {
+                            StatusDot(level: finding.status.badgeLevel, size: 6).padding(.top, 5)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(finding.title).font(Typo.captionStrong).lineLimit(1)
+                                Text(finding.detail).font(Typo.caption).foregroundColor(.secondary)
+                                    .lineLimit(2)
+                            }
+                            Spacer(minLength: 0)
                         }
-                        Spacer(minLength: 0)
+                        .padding(.vertical, 4)
+                        if index < result.findings.count - 1 {
+                            Rectangle().fill(Surface.hairline).frame(height: 1)
+                        }
                     }
-                    .padding(.vertical, 2)
                 }
             }
         }
     }
 
     private var historyCard: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(title: T("记录", "HISTORY"))
-                let store = AuditHistoryStore.shared
-                if store.results.isEmpty {
-                    Text(T("暂无记录", "No records")).font(Typo.caption).foregroundColor(.secondary)
-                } else {
-                    ForEach(store.results.prefix(8)) { item in
-                        HStack {
+        let store = AuditHistoryStore.shared
+        return Card(title: T("记录", "History"), icon: "clock.arrow.circlepath") {
+            if store.results.isEmpty {
+                Text(T("暂无记录", "No records")).font(Typo.caption).foregroundColor(.secondary)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(store.results.prefix(8).enumerated()), id: \.element.id) { index, item in
+                        HStack(spacing: Space.sm) {
+                            Text("\(item.score)")
+                                .font(Typo.captionStrong)
+                                .foregroundColor(ScorePalette.color(item.score))
+                                .frame(width: 26, alignment: .leading)
+                            Text(item.verdict).font(Typo.caption)
+                            Spacer()
                             Text(Format.dateTime(item.date))
                                 .font(Typo.caption)
                                 .foregroundColor(.secondary)
-                            Spacer()
-                            Text("\(item.score)").font(Typo.captionStrong)
-                                .foregroundColor(ScorePalette.color(item.score))
-                            Text(item.verdict).font(Typo.caption).foregroundColor(.secondary)
                         }
-                        Divider().opacity(0.4)
+                        .frame(height: Metrics.row)
+                        if index < min(store.results.count, 8) - 1 {
+                            Rectangle().fill(Surface.hairline).frame(height: 1)
+                        }
                     }
                 }
             }
         }
     }
-
 }

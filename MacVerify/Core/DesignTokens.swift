@@ -137,3 +137,12 @@ enum ScorePalette {
         return StatusPalette.critical
     }
 }
+
+/// 分类色（图表系列、指标块）。只用于区分「不同系列」，不表达好坏——
+/// 表达好坏一律用 StatusPalette。
+enum SeriesPalette {
+    static let cpuSingle = Color.accentColor
+    static let cpuMulti = Color.purple
+    static let gpuLive = Color.cyan
+    static let gpuPeak = Color.teal
+}

@@ -97,6 +97,8 @@ struct InfoRow: View {
             }
             // 13pt 正文 + 上下各 7，行高约 27；改造前是 9pt/13pt 混排，行高压到 22
             .padding(.vertical, 7)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(label)：\(value)")
             if !isLast { Divider().opacity(Surface.dividerOpacity) }
         }
     }
@@ -112,6 +114,16 @@ enum BadgeLevel {
         case .warning: return StatusPalette.warning
         case .critical: return StatusPalette.critical
         case .neutral: return StatusPalette.neutral
+        }
+    }
+
+    /// 供 VoiceOver 朗读的状态词，避免只念出一串字符
+    var spoken: String {
+        switch self {
+        case .ok: return T("通过", "pass")
+        case .warning: return T("需确认", "needs confirmation")
+        case .critical: return T("不一致", "mismatch")
+        case .neutral: return T("不可用", "unavailable")
         }
     }
 
@@ -139,7 +151,8 @@ struct StatusBadge: View {
         .padding(.vertical, Space.xs)
         .background(level.color.opacity(0.12))
         .cornerRadius(Radius.badge)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(level.spoken)：\(text)")
     }
 }
 

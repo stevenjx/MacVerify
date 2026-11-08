@@ -56,6 +56,8 @@ struct OverviewChecksSection: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(item.title)：\(item.value)")
+        .accessibilityHint(item.target == nil ? "" : T("打开对应页面", "Opens the matching page"))
     }
 
     // MARK: - 数据

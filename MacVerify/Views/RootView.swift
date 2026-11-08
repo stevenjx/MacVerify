@@ -70,6 +70,8 @@ struct RootView: View {
     @EnvironmentObject private var battery: BatteryStore
     @ObservedObject private var localization = Localization.shared
     @ObservedObject private var themeStore = ThemeStore.shared
+    @AppStorage("macverify.guide.seen") private var guideSeen = false
+    @State private var showGuide = false
 
     @State private var selection: SidebarItem = {
         if let raw = ProcessInfo.processInfo.environment["MACVERIFY_PAGE"],
@@ -92,6 +94,15 @@ struct RootView: View {
         .background(Color(NSColor.windowBackgroundColor))
         .preferredColorScheme(themeStore.theme.colorScheme)
         .environment(\.locale, localization.locale)
+        .sheet(isPresented: $showGuide) {
+            FirstRunGuide {
+                guideSeen = true
+                showGuide = false
+            }
+        }
+        .onAppear {
+            if !guideSeen { showGuide = true }
+        }
     }
 
     private var sidebar: some View {

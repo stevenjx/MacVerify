@@ -8,6 +8,15 @@ struct PerformanceView: View {
     @StateObject private var cpuBenchmark = CPUBenchmark()
     @StateObject private var gpuBenchmark = GPUBenchmark()
     @State private var gpuDuration = 30
+    @State private var cpuRuns: [CPURun] = []
+
+    /// 一次 CPU 测试的结果。只存本次会话，不落盘：用于观察持续压测下的衰减。
+    private struct CPURun: Identifiable {
+        let id = UUID()
+        let index: Int
+        let single: Double
+        let multi: Double
+    }
 
     var body: some View {
         PageScroll {
@@ -17,6 +26,7 @@ struct PerformanceView: View {
             )
 
             cpuCard
+            if cpuRuns.count >= 2 { runsCard }
             gpuCard
 
             NoticeBar(
@@ -24,6 +34,12 @@ struct PerformanceView: View {
                        "Stress tests spin up the fans and heat the chassis — that is expected. Keep the Mac on power and stop the test to let it cool down."),
                 level: .neutral
             )
+        }
+        .onChange(of: cpuBenchmark.isRunning) { running in
+            guard !running, cpuBenchmark.multiCoreMops > 0 else { return }
+            cpuRuns.append(CPURun(index: cpuRuns.count + 1,
+                                  single: cpuBenchmark.singleCoreMops,
+                                  multi: cpuBenchmark.multiCoreMops))
         }
         .onDisappear {
             gpuBenchmark.cancel()
@@ -55,7 +71,7 @@ struct PerformanceView: View {
                     StatTile(title: T("多核吞吐", "Multi-core"),
                              value: cpuBenchmark.multiCoreMops > 0 ? String(format: "%.0f Mops/s", cpuBenchmark.multiCoreMops) : "—",
                              detail: T("\(system.info.logicalCores) 线程", "\(system.info.logicalCores) threads"),
-                             color: .purple, icon: "cpu")
+                             color: SeriesPalette.cpuMulti, icon: "cpu")
                     if let temperature = battery.battery.temperature {
                         StatTile(title: T("电池温度", "Battery temp"),
                                  value: String(format: "%.1f °C", temperature),
@@ -68,6 +84,42 @@ struct PerformanceView: View {
                     ProgressView(value: cpuBenchmark.progress).progressViewStyle(.linear)
                 }
                 Text(cpuBenchmark.message).font(Typo.caption).foregroundColor(.secondary)
+            }
+        }
+    }
+
+    // MARK: - 本轮多次测试
+
+    /// 多次测试的横向对比。以本轮最高值为 100%，看的是「同一台机器在自己前后几次里的变化」，
+    /// 不与任何外部机型基准比较——那种表会过期，写错就是新的假数据。
+    private var runsCard: some View {
+        let best = cpuRuns.map(\.multi).max() ?? 1
+        let rows = cpuRuns.map { run in
+            BarRow(label: T("第 \(run.index) 次", "Run \(run.index)"),
+                   value: run.multi,
+                   valueText: String(format: "%.0f", run.multi),
+                   color: SeriesPalette.cpuMulti)
+        }
+        let worst = cpuRuns.map(\.multi).min() ?? best
+        let drop = best > 0 ? (best - worst) / best * 100 : 0
+
+        return Card {
+            VStack(alignment: .leading, spacing: Space.sm + 2) {
+                HStack {
+                    SectionHeader(title: T("本轮多次测试", "THIS SESSION"), icon: "chart.bar")
+                    Spacer()
+                    if drop > 5 {
+                        StatusBadge(text: T("最大衰减 \(String(format: "%.0f", drop))%", "\(String(format: "%.0f", drop))% drop"), level: .warning)
+                    } else {
+                        StatusBadge(text: T("波动正常", "Stable"), level: .ok)
+                    }
+                }
+                HorizontalBars(rows: rows)
+                Text(T("多核吞吐，以本轮最高一次为 100%。持续压测下明显下滑通常意味着散热受限。",
+                       "Multi-core throughput, with the best run of this session as 100%. A clear decline under sustained load usually means thermal throttling."))
+                    .font(Typo.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -114,11 +166,11 @@ struct PerformanceView: View {
                     StatTile(title: T("实时批次/秒", "Batches/s"),
                              value: gpuBenchmark.isRunning ? String(format: "%.0f", gpuBenchmark.framesPerSecond) : "—",
                              detail: T("Metal 计算管线提交完成数", "Completed Metal compute batches"),
-                             color: .cyan, icon: "square.stack.3d.up")
+                             color: SeriesPalette.gpuLive, icon: "square.stack.3d.up")
                     StatTile(title: T("峰值", "Peak"),
                              value: gpuBenchmark.peakFramesPerSecond > 0 ? String(format: "%.0f", gpuBenchmark.peakFramesPerSecond) : "—",
                              detail: T("本次测试最高值", "Highest this run"),
-                             color: .teal, icon: "arrow.up.right")
+                             color: SeriesPalette.gpuPeak, icon: "arrow.up.right")
                     StatTile(title: T("已运行", "Elapsed"),
                              value: String(format: "%.0f s", gpuBenchmark.elapsed),
                              detail: T("批次数 \(gpuBenchmark.completedBatches)", "\(gpuBenchmark.completedBatches) batches"),

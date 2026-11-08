@@ -72,7 +72,7 @@ MacVerify makes the evidence behind every claim inspectable.
 
 ## 安装 / Install
 
-1. 下载 `MacVerify-1.0.7.dmg`
+1. 下载 `MacVerify-1.0.8.dmg`
 2. 打开后将 `MacVerify.app` 拖入「应用程序」
 3. 首次打开如提示"无法验证开发者"，右键点击应用 → 打开
    （或执行 `xattr -dr com.apple.quarantine /Applications/MacVerify.app`）
@@ -120,6 +120,16 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   这类机型的存储容量核对标为「不做判断」，而不是猜测可换或板载。
 
 ## Changelog
+
+### 1.0.8 — 界面 P2：图表、首次引导、无障碍
+- **本轮多次测试的横向对比**：性能页在连续跑两次以上 CPU 测试后，出现条形图对比多核吞吐，
+  以本轮最高一次为 100%。持续压测下明显下滑通常意味着散热受限。
+  **刻意不接外部机型基准**——那种表会过期，写错就是新的假数据
+- **首次启动引导**：一页讲清「它做什么 / 它不做什么 / 怎么读结果」，
+  明确「减号=本机不提供、斜杠=确实不存在」，并说明不判断「是否原装」的原因
+- **无障碍**：状态徽章朗读为「状态词 + 内容」，信息行朗读为「标签：值」，检查项带跳转提示
+- 图表组件独立成 `Views/Charts.swift`，不依赖 Swift Charts，仍支持 macOS 12
+- 验收：13 页冒烟通过；报告 JSON 与 1.0.7 逐字段一致（83 字段）；图表用注入样例核对过比例与衰减计算
 
 ### 1.0.7 — 界面 P1：状态区分与数值排版
 - **「不可用」与「确实没有」分开呈现**：读不到（本机不提供）用减号、事实上不存在（没插 USB、无电池）

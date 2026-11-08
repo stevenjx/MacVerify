@@ -90,7 +90,14 @@ enum MacModelCatalog {
         .init(identifier: "Mac17,6", name: "MacBook Pro (16-inch, 2026)", image: "mbp_16_2026_hero", modelNumber: nil),
         .init(identifier: "Mac17,8", name: "MacBook Pro (16-inch, 2026)", image: "mbp_16_2026_hero", modelNumber: nil),
         .init(identifier: "Mac17,7", name: "MacBook Pro (14-inch, 2026)", image: "mbp_14_2026_hero", modelNumber: nil),
-        .init(identifier: "Mac17,9", name: "MacBook Pro (14-inch, 2026)", image: "mbp_14_2026_hero", modelNumber: nil)
+        .init(identifier: "Mac17,9", name: "MacBook Pro (14-inch, 2026)", image: "mbp_14_2026_hero", modelNumber: nil),
+        // PROLED XDR 那一档换了面板（14.2″ 3024×1986 / 16.3″ 3472×2266），与上一条不是同一块屏，
+        // 因此单独给名字；外形暂无对应素材，image 留空，不用别的机型照片顶上。
+        .init(identifier: "Mac17,11", name: "MacBook Pro (14-inch PROLED XDR, 2026)", image: nil, modelNumber: nil),
+        .init(identifier: "Mac17,13", name: "MacBook Pro (14-inch PROLED XDR, 2026)", image: nil, modelNumber: nil),
+        .init(identifier: "Mac17,10", name: "MacBook Pro (16-inch PROLED XDR, 2026)", image: nil, modelNumber: nil),
+        .init(identifier: "Mac17,12", name: "MacBook Pro (16-inch PROLED XDR, 2026)", image: nil, modelNumber: nil),
+        .init(identifier: "Mac18,1", name: "MacBook Pro (14-inch, M6, 2026)", image: nil, modelNumber: nil)
     ]
 
     private static let index: [String: MacModelEntry] = {

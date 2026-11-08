@@ -257,6 +257,56 @@ enum ModelSpecCatalog {
             gpuCores: [8, 10],
             source: "https://support.apple.com/en-us/111867"
         ),
+        ModelSpec(
+            identifiers: ["Mac14,15"],
+            name: "MacBook Air (15-inch, M2, 2023)",
+            displayInches: 15.3, nativeWidth: 2880, nativeHeight: 1864,
+            batteryRatedWh: 66.5,
+            memoryOptionsGB: [8, 16, 24],
+            storageOptionsGB: [256, 512, 1000, 2000],
+            gpuCores: [10],
+            source: "https://support.apple.com/en-us/111346"
+        ),
+        ModelSpec(
+            identifiers: ["Mac15,12"],
+            name: "MacBook Air (13-inch, M3, 2024)",
+            displayInches: 13.6, nativeWidth: 2560, nativeHeight: 1664,
+            batteryRatedWh: 52.6,
+            memoryOptionsGB: [8, 16, 24],
+            storageOptionsGB: [256, 512, 1000, 2000],
+            gpuCores: [8, 10],
+            source: "https://support.apple.com/en-us/118551"
+        ),
+        ModelSpec(
+            identifiers: ["Mac15,13"],
+            name: "MacBook Air (15-inch, M3, 2024)",
+            displayInches: 15.3, nativeWidth: 2880, nativeHeight: 1864,
+            batteryRatedWh: 66.5,
+            memoryOptionsGB: [8, 16, 24],
+            storageOptionsGB: [256, 512, 1000, 2000],
+            gpuCores: [10],
+            source: "https://support.apple.com/en-us/118552"
+        ),
+        ModelSpec(
+            identifiers: ["Mac16,12"],
+            name: "MacBook Air (13-inch, M4, 2025)",
+            displayInches: 13.6, nativeWidth: 2560, nativeHeight: 1664,
+            batteryRatedWh: 53.8,
+            memoryOptionsGB: [16, 24, 32],
+            storageOptionsGB: [256, 512, 1000, 2000],
+            gpuCores: [8, 10],
+            source: "https://support.apple.com/en-us/122209"
+        ),
+        ModelSpec(
+            identifiers: ["Mac16,13"],
+            name: "MacBook Air (15-inch, M4, 2025)",
+            displayInches: 15.3, nativeWidth: 2880, nativeHeight: 1864,
+            batteryRatedWh: 66.5,
+            memoryOptionsGB: [16, 24, 32],
+            storageOptionsGB: [256, 512, 1000, 2000],
+            gpuCores: [10],
+            source: "https://support.apple.com/en-us/122210"
+        ),
 
         // MARK: - Apple Silicon MacBook Pro
         ModelSpec(
@@ -298,6 +348,158 @@ enum ModelSpecCatalog {
             storageOptionsGB: [512, 1000, 2000, 4000, 8000],
             gpuCores: [19, 30, 38],
             source: "https://support.apple.com/en-us/111838"
+        ),
+
+        // MARK: - Apple Silicon MacBook Pro 13-inch (M1 / M2)
+        ModelSpec(
+            identifiers: ["MacBookPro17,1"],
+            name: "MacBook Pro (13-inch, M1, 2020)",
+            displayInches: 13.3, nativeWidth: 2560, nativeHeight: 1600,
+            batteryRatedWh: 58.2,
+            memoryOptionsGB: [8, 16],
+            storageOptionsGB: [256, 512, 1000, 2000],
+            gpuCores: [8],
+            source: "https://support.apple.com/en-us/111893"
+        ),
+        ModelSpec(
+            identifiers: ["Mac14,7"],
+            name: "MacBook Pro (13-inch, M2, 2022)",
+            displayInches: 13.3, nativeWidth: 2560, nativeHeight: 1600,
+            batteryRatedWh: 58.2,
+            memoryOptionsGB: [8, 16, 24],
+            storageOptionsGB: [256, 512, 1000, 2000],
+            gpuCores: [10],
+            source: "https://support.apple.com/en-us/111869"
+        ),
+
+        // MARK: - Apple Silicon MacBook Pro, Nov 2023
+        // 同一尺寸在这一代分两条：M3 基础款与 M3 Pro/Max 的电池、内存、GPU 档位不同，
+        // 且 14 吋 M3 为 70Wh（额定 69.6Wh），Pro/Max 为 72.4Wh，不能合并。
+        ModelSpec(
+            identifiers: ["Mac15,3"],
+            name: "MacBook Pro (14-inch, M3, Nov 2023)",
+            displayInches: 14.2, nativeWidth: 3024, nativeHeight: 1964,
+            batteryRatedWh: 70, batteryActualWh: 69.6,
+            memoryOptionsGB: [8, 16, 24],
+            storageOptionsGB: [512, 1000, 2000],
+            gpuCores: [10],
+            source: "https://support.apple.com/en-us/117735"
+        ),
+        ModelSpec(
+            identifiers: ["Mac15,6", "Mac15,8", "Mac15,10"],
+            name: "MacBook Pro (14-inch, M3 Pro or M3 Max, Nov 2023)",
+            displayInches: 14.2, nativeWidth: 3024, nativeHeight: 1964,
+            batteryRatedWh: 72.4,
+            memoryOptionsGB: [18, 36, 48, 64, 96, 128],
+            storageOptionsGB: [512, 1000, 2000, 4000, 8000],
+            gpuCores: [14, 18, 30, 40],
+            source: "https://support.apple.com/en-us/117736"
+        ),
+        ModelSpec(
+            identifiers: ["Mac15,7", "Mac15,9", "Mac15,11"],
+            name: "MacBook Pro (16-inch, Nov 2023)",
+            displayInches: 16.2, nativeWidth: 3456, nativeHeight: 2234,
+            batteryRatedWh: 100, batteryActualWh: 99.6,
+            memoryOptionsGB: [18, 36, 48, 64, 96, 128],
+            storageOptionsGB: [512, 1000, 2000, 4000, 8000],
+            gpuCores: [18, 30, 40],
+            source: "https://support.apple.com/en-us/117737"
+        ),
+
+        // MARK: - Apple Silicon MacBook Pro, 2024
+        ModelSpec(
+            identifiers: ["Mac16,1"],
+            name: "MacBook Pro (14-inch, M4, 2024)",
+            displayInches: 14.2, nativeWidth: 3024, nativeHeight: 1964,
+            batteryRatedWh: 72.4,
+            memoryOptionsGB: [16, 24, 32],
+            storageOptionsGB: [512, 1000, 2000],
+            gpuCores: [10],
+            source: "https://support.apple.com/en-us/121552"
+        ),
+        ModelSpec(
+            identifiers: ["Mac16,6", "Mac16,8"],
+            name: "MacBook Pro (14-inch, M4 Pro or M4 Max, 2024)",
+            displayInches: 14.2, nativeWidth: 3024, nativeHeight: 1964,
+            batteryRatedWh: 72.4,
+            memoryOptionsGB: [24, 36, 48, 64, 128],
+            storageOptionsGB: [512, 1000, 2000, 4000, 8000],
+            gpuCores: [16, 20, 32, 40],
+            source: "https://support.apple.com/en-us/121553"
+        ),
+        ModelSpec(
+            identifiers: ["Mac16,7", "Mac16,5"],
+            name: "MacBook Pro (16-inch, 2024)",
+            displayInches: 16.2, nativeWidth: 3456, nativeHeight: 2234,
+            batteryRatedWh: 100, batteryActualWh: 99.6,
+            memoryOptionsGB: [24, 36, 48, 64, 128],
+            storageOptionsGB: [512, 1000, 2000, 4000, 8000],
+            gpuCores: [20, 32, 40],
+            source: "https://support.apple.com/en-us/121554"
+        ),
+
+        // MARK: - Apple Silicon MacBook Pro, M5 (2025) 与 2026
+        ModelSpec(
+            identifiers: ["Mac17,2"],
+            name: "MacBook Pro (14-inch, M5)",
+            displayInches: 14.2, nativeWidth: 3024, nativeHeight: 1964,
+            batteryRatedWh: 72.4,
+            memoryOptionsGB: [16, 24, 32],
+            storageOptionsGB: [512, 1000, 2000, 4000],
+            gpuCores: [10],
+            source: "https://support.apple.com/en-us/125405"
+        ),
+        ModelSpec(
+            identifiers: ["Mac17,7", "Mac17,9"],
+            name: "MacBook Pro (14-inch, M5 Pro or M5 Max)",
+            displayInches: 14.2, nativeWidth: 3024, nativeHeight: 1964,
+            batteryRatedWh: 72.4,
+            memoryOptionsGB: [24, 36, 48, 64, 128],
+            storageOptionsGB: [1000, 2000, 4000, 8000],
+            gpuCores: [16, 20, 32, 40],
+            source: "https://support.apple.com/en-us/126318"
+        ),
+        ModelSpec(
+            identifiers: ["Mac17,6", "Mac17,8"],
+            name: "MacBook Pro (16-inch, M5 Pro or M5 Max)",
+            displayInches: 16.2, nativeWidth: 3456, nativeHeight: 2234,
+            batteryRatedWh: 100, batteryActualWh: 99.6,
+            memoryOptionsGB: [24, 36, 48, 64, 128],
+            storageOptionsGB: [1000, 2000, 4000, 8000],
+            gpuCores: [20, 32, 40],
+            source: "https://support.apple.com/en-us/126319"
+        ),
+        // PROLED XDR 是另一套面板：对角线、分辨率与上一档都不同（14.2″ 3024×1986 / 16.3″ 3472×2266），
+        // 因此必须单独成条，不能与上面的 3024×1964 / 3456×2234 混用。
+        ModelSpec(
+            identifiers: ["Mac17,11", "Mac17,13"],
+            name: "MacBook Pro (14-inch PROLED XDR, M5 Pro or M5 Max)",
+            displayInches: 14.2, nativeWidth: 3024, nativeHeight: 1986,
+            batteryRatedWh: 72.6,
+            memoryOptionsGB: [24, 36, 48, 64, 128],
+            storageOptionsGB: [1000, 2000, 4000, 8000, 16000],
+            gpuCores: [16, 20, 32, 40],
+            source: "https://support.apple.com/en-us/148301"
+        ),
+        ModelSpec(
+            identifiers: ["Mac17,10", "Mac17,12"],
+            name: "MacBook Pro (16-inch PROLED XDR, M5 Pro or M5 Max)",
+            displayInches: 16.3, nativeWidth: 3472, nativeHeight: 2266,
+            batteryRatedWh: 100,
+            memoryOptionsGB: [24, 36, 48, 64, 128],
+            storageOptionsGB: [1000, 2000, 4000, 8000, 16000],
+            gpuCores: [20, 32, 40],
+            source: "https://support.apple.com/en-us/148302"
+        ),
+        ModelSpec(
+            identifiers: ["Mac18,1"],
+            name: "MacBook Pro (14-inch, M6)",
+            displayInches: 14.2, nativeWidth: 3024, nativeHeight: 1964,
+            batteryRatedWh: 72.4,
+            memoryOptionsGB: [16, 24, 32],
+            storageOptionsGB: [1000, 2000, 4000],
+            gpuCores: [12],
+            source: "https://support.apple.com/en-us/148300"
         )
     ]
 

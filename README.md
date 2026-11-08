@@ -72,7 +72,7 @@ MacVerify makes the evidence behind every claim inspectable.
 
 ## 安装 / Install
 
-1. 下载 `MacVerify-1.0.3.dmg`
+1. 下载 `MacVerify-1.0.4.dmg`
 2. 打开后将 `MacVerify.app` 拖入「应用程序」
 3. 首次打开如提示"无法验证开发者"，右键点击应用 → 打开
    （或执行 `xattr -dr com.apple.quarantine /Applications/MacVerify.app`）
@@ -120,6 +120,25 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   这类机型的存储容量核对标为「不做判断」，而不是猜测可换或板载。
 
 ## Changelog
+
+### 1.0.4
+- **原装性基线补满 Apple Silicon 全系**：D-10 / D-11 / D-12 全部完成，
+  新增 29 个标识符，累计 **41 个机型系列 / 57 个标识符**
+  - D-10 13″ MBP：MacBookPro17,1（M1，58.2Wh、8 核 GPU）、Mac14,7（M2，58.2Wh、10 核）
+  - D-11 Air：15″ M2（66.5Wh）、13″/15″ M3（52.6 / 66.5Wh）、13″/15″ M4（53.8 / 66.5Wh）
+  - D-12 MBP：Nov 2023（14″ M3 70Wh、14″ M3 Pro/Max 72.4Wh、16″ 100Wh）、
+    2024、M5、2026（含 PROLED XDR 与 M6）
+- **同一尺寸在这一代要分成两条基线**：14″ M3 基础款是 70Wh / 10 核 GPU，M3 Pro/Max 是
+  72.4Wh / 14–40 核；16″ 的内存从 18GB 起。合并会同时放松内存与 GPU 判定，因此按 Apple 页面分开
+- **2026 的两块屏不能混用**：普通 Liquid Retina XDR 是 14.2″ 3024×1964 / 16.2″ 3456×2234，
+  PROLED XDR 是 14.2″ 3024×1986 / 16.3″ 3472×2266。写错分辨率会让真机被判成「换过屏」
+- 机型表补充 5 个 2026 标识符（Mac17,10–17,13、Mac18,1）；这几款外形暂无素材，`image` 留空，
+  不拿别的机型照片顶上
+- 存储档位支持 16TB（2026 PROLED 机型的上限）
+- **App 图标**换成根目录的 `icon.png`：按 macOS 完整阶梯生成 16/32/128/256/512 + @2x 共 10 档，
+  构建后经 `NSWorkspace` 验证可拿到 16→2048 px 全部表示
+- **原装性卡片文案去掉歧义**：原先同时打印设备名与基线自带名，而 `MacBookPro15,3` 是 2019 款、
+  其基线条目覆盖 2018/2019，两者并列看起来像识别冲突。现改为「对照基线覆盖 …」，设备名保持唯一权威
 
 ### 1.0.3
 - **机型规格基线补齐 Intel 全系**：新增 14 个标识符，覆盖 2016–2020 的 MacBook Pro 与 2017–2020 的

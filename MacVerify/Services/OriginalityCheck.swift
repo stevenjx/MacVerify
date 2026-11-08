@@ -209,6 +209,7 @@ enum OriginalityCheck {
         case 2000: return "2TB"
         case 4000: return "4TB"
         case 8000: return "8TB"
+        case 16000: return "16TB"
         default: return "\(nominalGB)GB"
         }
     }

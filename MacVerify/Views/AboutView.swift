@@ -19,12 +19,12 @@ struct AboutView: View {
                     .frame(width: 72, height: 72)
                     .cornerRadius(14)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("MacVerify").font(.system(size: 20, weight: .bold))
+                    Text("MacVerify").font(Typo.metric)
                     Text(T("二手 Mac 硬件质检工具", "Hardware inspection for used Macs"))
-                        .font(.system(size: 11))
+                        .font(Typo.caption)
                         .foregroundColor(.secondary)
                     Text(T("版本 \(BuildInfo.version)（\(BuildInfo.build)）", "Version \(BuildInfo.version) (\(BuildInfo.build))"))
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(Typo.mono)
                         .foregroundColor(.secondary)
                 }
                 Spacer()
@@ -46,7 +46,7 @@ struct AboutView: View {
 
                     Text(T("切换后立即生效。系统语言为中文时选择“跟随系统”会自动使用简体中文。",
                            "Changes apply immediately. With Follow System, a Chinese system language selects Simplified Chinese."))
-                        .font(.system(size: 10))
+                        .font(Typo.caption)
                         .foregroundColor(.secondary)
                 }
             }
@@ -72,13 +72,13 @@ struct AboutView: View {
                     SectionHeader(title: T("说明", "NOTES"))
                     Text(T("所有检测均在本机完成，不联网、不上传数据。数据来源包括 IOKit、sysctl、CoreGraphics 与只读系统命令。",
                            "Everything runs locally — no network calls, no uploads. Data comes from IOKit, sysctl, CoreGraphics and read-only system commands."))
-                        .font(.system(size: 11))
+                        .font(Typo.caption)
                         .foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
 
                     Text(T("机型名称与面板信息来自 Apple 公开资料。部分传感器（SMART、温度）在 Apple Silicon 上不向用户态开放，界面会如实显示“不可用”，不会估算或补值。",
                            "Model names come from public Apple documentation. Some sensors (SMART, temperature) are not exposed on Apple Silicon; the app shows them as unavailable rather than guessing."))
-                        .font(.system(size: 11))
+                        .font(Typo.caption)
                         .foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -96,7 +96,7 @@ struct AboutView: View {
                 }
                 Spacer()
                 Text(T("检测时间 \(Format.dateTime(system.info.scannedAt))", "Scanned \(Format.dateTime(system.info.scannedAt))"))
-                    .font(.system(size: 10))
+                    .font(Typo.caption)
                     .foregroundColor(.secondary)
             }
         }
@@ -113,10 +113,10 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text(T("通用", "General")).font(.system(size: 15, weight: .semibold))
+            Text(T("通用", "General")).font(Typo.title)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(T("语言", "Language")).font(.system(size: 11)).foregroundColor(.secondary)
+                Text(T("语言", "Language")).font(Typo.caption).foregroundColor(.secondary)
                 Picker("", selection: Binding(
                     get: { localization.language },
                     set: { localization.language = $0 }
@@ -130,7 +130,7 @@ struct SettingsView: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(T("外观", "Appearance")).font(.system(size: 11)).foregroundColor(.secondary)
+                Text(T("外观", "Appearance")).font(Typo.caption).foregroundColor(.secondary)
                 Picker("", selection: Binding(
                     get: { themeStore.theme },
                     set: { themeStore.theme = $0 }
@@ -145,7 +145,7 @@ struct SettingsView: View {
 
             Divider()
             Text(T("MacVerify \(BuildInfo.version) · 本机检测，不上传数据", "MacVerify \(BuildInfo.version) · Local only, no uploads"))
-                .font(.system(size: 10))
+                .font(Typo.caption)
                 .foregroundColor(.secondary)
             Spacer()
         }

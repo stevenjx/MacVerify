@@ -64,12 +64,12 @@ struct StorageView: View {
                         if let shutdowns = storage.smartUnsafeShutdowns {
                             InfoRow(label: T("异常断电", "Unsafe shutdowns"),
                                     value: "\(shutdowns)",
-                                    valueColor: shutdowns > 100 ? .orange : .primary)
+                                    valueColor: shutdowns > 100 ? StatusPalette.warning : .primary)
                         }
                         if let errors = storage.smartMediaErrors {
                             InfoRow(label: T("介质错误", "Media errors"),
                                     value: "\(errors)",
-                                    valueColor: errors > 0 ? .red : .primary)
+                                    valueColor: errors > 0 ? StatusPalette.critical : .primary)
                         }
                         if let entries = storage.smartErrorLogEntries {
                             InfoRow(label: T("错误日志条目", "Error log entries"), value: "\(entries)")
@@ -83,7 +83,7 @@ struct StorageView: View {
                         }
                         if let source = storage.smartSource {
                             Text(T("数据来源：\(source)", "Source: \(source)"))
-                                .font(.system(size: 9, design: .monospaced))
+                                .font(Typo.mono)
                                 .foregroundColor(.secondary.opacity(0.8))
                                 .padding(.top, 6)
                         }
@@ -105,11 +105,11 @@ struct StorageView: View {
                     SectionHeader(title: T("顺序读写测试", "SEQUENTIAL BENCHMARK"))
 
                     HStack(spacing: 10) {
-                        Text(T("测试文件大小", "Test size")).font(.system(size: 11)).foregroundColor(.secondary)
+                        Text(T("测试文件大小", "Test size")).font(Typo.caption).foregroundColor(.secondary)
                         ForEach(sizes, id: \.self) { size in
                             Button(action: { selectedSize = size }) {
                                 Text(size >= 1024 ? "\(size / 1024) GB" : "\(size) MB")
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(Typo.caption)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 5)
                                     .background(selectedSize == size ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.05))
@@ -135,23 +135,23 @@ struct StorageView: View {
                     }
 
                     Text(benchmark.message)
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(Typo.mono)
                         .foregroundColor(.secondary)
 
                     HStack(spacing: 12) {
                         StatTile(title: T("写入", "Write"),
                                  value: benchmark.writeSpeed > 0 ? Format.speed(benchmark.writeSpeed) : "—",
                                  detail: T("含落盘同步", "Including flush"),
-                                 color: .orange, icon: "arrow.down.doc")
+                                 color: StatusPalette.warning, icon: "arrow.down.doc")
                         StatTile(title: T("读取", "Read"),
                                  value: benchmark.readSpeed > 0 ? Format.speed(benchmark.readSpeed) : "—",
                                  detail: T("绕过页缓存", "Bypassing page cache"),
-                                 color: .green, icon: "arrow.up.doc")
+                                 color: StatusPalette.ok, icon: "arrow.up.doc")
                     }
 
                     Text(T("测试会在临时目录写入随机数据并立即落盘，结束后自动删除。固态硬盘的写入速度会随剩余空间下降，建议在可用空间充足时测试。",
                            "The test writes random data to the temporary directory and flushes it, then deletes the file. SSD write speed drops as free space shrinks — test with plenty of free space."))
-                        .font(.system(size: 10))
+                        .font(Typo.caption)
                         .foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -197,6 +197,6 @@ struct StorageView: View {
 
     private var smartColor: Color {
         guard let health = storage.smartHealthPercent else { return .secondary }
-        return health >= 80 ? .primary : (health >= 50 ? .orange : .red)
+        return health >= 80 ? .primary : (health >= 50 ? StatusPalette.warning : StatusPalette.critical)
     }
 }

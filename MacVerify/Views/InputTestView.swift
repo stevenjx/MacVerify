@@ -162,7 +162,7 @@ struct InputTestView: View {
                 .frame(height: 6 * 40 + 5 * keySpacing)
 
                 Text(lastEventText)
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(Typo.mono)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
             }
@@ -176,7 +176,7 @@ struct InputTestView: View {
             ForEach(keys) { key in
                 let keyWidth = max(20, available * key.weight / totalWeight)
                 Text(key.label)
-                    .font(.system(size: 9.5, weight: .medium))
+                    .font(Typo.caption)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .frame(width: keyWidth, height: 40)
@@ -195,8 +195,8 @@ struct InputTestView: View {
         if key.isDown { return .accentColor }
         switch key.count {
         case 0: return Color.primary.opacity(0.05)
-        case 1: return Color.green.opacity(0.75)
-        default: return Color.green
+        case 1: return Color.accentColor.opacity(0.75)
+        default: return Color.accentColor
         }
     }
 
@@ -264,7 +264,7 @@ struct InputTestView: View {
                     SectionHeader(title: T("触控板", "TRACKPAD"))
                     Spacer()
                     Text(T("压力 \(Int(pressure * 100))%", "Pressure \(Int(pressure * 100))%"))
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(Typo.mono)
                         .foregroundColor(pressure > 0.05 ? .accentColor : .secondary)
                     SecondaryButton(title: T("清空", "Clear")) { resetToken += 1 }
                 }
@@ -280,7 +280,7 @@ struct InputTestView: View {
 
                 Text(T("按下并拖动可绘制轨迹，颜色由压力决定。逐步测试四个角落与中心，确认定位准确、无漂移、无死区。",
                        "Press and drag to draw — colour reflects pressure. Test the four corners and the centre for accurate tracking, drift or dead zones."))
-                    .font(.system(size: 10))
+                    .font(Typo.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

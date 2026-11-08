@@ -102,9 +102,9 @@ struct RootView: View {
                     .frame(width: 26, height: 26)
                     .cornerRadius(6)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("MacVerify").font(.system(size: 13, weight: .semibold))
+                    Text("MacVerify").font(Typo.bodyStrong)
                     Text(T("二手 Mac 质检", "Used Mac Inspection"))
-                        .font(.system(size: 9))
+                        .font(Typo.caption)
                         .foregroundColor(.secondary)
                 }
                 Spacer()
@@ -118,7 +118,7 @@ struct RootView: View {
                     ForEach(SidebarItem.groups, id: \.title) { group in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(group.title)
-                                .font(.system(size: 9, weight: .semibold))
+                                .font(Typo.captionStrong)
                                 .foregroundColor(.secondary)
                                 .padding(.horizontal, 14)
                                 .padding(.bottom, 3)
@@ -138,7 +138,7 @@ struct RootView: View {
                 Divider().opacity(0.5)
                 HStack {
                     Text("v\(BuildInfo.version) (\(BuildInfo.build))")
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(Typo.mono)
                         .foregroundColor(.secondary)
                     Spacer()
                     Button(action: { system.refresh(); battery.refresh() }) {
@@ -146,9 +146,9 @@ struct RootView: View {
                             if system.isScanning {
                                 ProgressView().controlSize(.small).scaleEffect(0.6).frame(width: 12, height: 12)
                             } else {
-                                Image(systemName: "arrow.clockwise").font(.system(size: 10, weight: .semibold))
+                                Image(systemName: "arrow.clockwise").font(Typo.captionStrong)
                             }
-                            Text(T("重新扫描", "Rescan")).font(.system(size: 10))
+                            Text(T("重新扫描", "Rescan")).font(Typo.caption)
                         }
                         .foregroundColor(.secondary)
                     }
@@ -168,11 +168,11 @@ struct RootView: View {
         return Button(action: { selection = item }) {
             HStack(spacing: 9) {
                 Image(systemName: item.icon)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(Typo.body)
                     .frame(width: 18)
                     .foregroundColor(isSelected ? .white : .secondary)
                 Text(item.title)
-                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                    .font(isSelected ? Typo.bodyStrong : Typo.body)
                     .foregroundColor(isSelected ? .white : .primary)
                 Spacer(minLength: 0)
             }

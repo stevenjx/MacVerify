@@ -60,14 +60,14 @@ struct PerformanceView: View {
                         StatTile(title: T("电池温度", "Battery temp"),
                                  value: String(format: "%.1f °C", temperature),
                                  detail: T("来自电池管理芯片", "From the battery gauge"),
-                                 color: temperature > 40 ? .orange : .green, icon: "thermometer")
+                                 color: temperature > 40 ? StatusPalette.warning : StatusPalette.ok, icon: "thermometer")
                     }
                 }
 
                 if cpuBenchmark.isRunning {
                     ProgressView(value: cpuBenchmark.progress).progressViewStyle(.linear)
                 }
-                Text(cpuBenchmark.message).font(.system(size: 10)).foregroundColor(.secondary)
+                Text(cpuBenchmark.message).font(Typo.caption).foregroundColor(.secondary)
             }
         }
     }
@@ -90,7 +90,7 @@ struct PerformanceView: View {
                 }
 
                 HStack(spacing: 8) {
-                    Text(gpuBenchmark.gpuName).font(.system(size: 11, weight: .medium))
+                    Text(gpuBenchmark.gpuName).font(Typo.caption)
                     if !gpuBenchmark.supportsMetal {
                         StatusBadge(text: T("不支持 Metal", "Metal unavailable"), level: .critical)
                     }
@@ -98,7 +98,7 @@ struct PerformanceView: View {
                     ForEach([30, 60, 120], id: \.self) { seconds in
                         Button(action: { gpuDuration = seconds }) {
                             Text("\(seconds)s")
-                                .font(.system(size: 11, weight: .medium))
+                                .font(Typo.caption)
                                 .padding(.horizontal, 9)
                                 .padding(.vertical, 4)
                                 .background(gpuDuration == seconds ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.05))
@@ -128,7 +128,7 @@ struct PerformanceView: View {
                 if gpuBenchmark.isRunning {
                     ProgressView(value: gpuBenchmark.progress).progressViewStyle(.linear)
                 }
-                Text(gpuBenchmark.message).font(.system(size: 10)).foregroundColor(.secondary)
+                Text(gpuBenchmark.message).font(Typo.caption).foregroundColor(.secondary)
             }
         }
     }

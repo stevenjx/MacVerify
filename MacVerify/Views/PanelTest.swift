@@ -45,7 +45,7 @@ struct PanelTestOverlayView: View {
             VStack {
                 HStack {
                     Text(state.steps[state.index].name)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(Typo.body)
                         .foregroundColor(state.steps[state.index].textColor.opacity(0.7))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -54,8 +54,8 @@ struct PanelTestOverlayView: View {
                     Spacer()
                     Button(action: onExit) {
                         HStack(spacing: 4) {
-                            Image(systemName: "xmark").font(.system(size: 10, weight: .bold))
-                            Text("Esc").font(.system(size: 11, weight: .medium))
+                            Image(systemName: "xmark").font(Typo.captionStrong)
+                            Text("Esc").font(Typo.caption)
                         }
                         .foregroundColor(state.steps[state.index].textColor)
                         .padding(.horizontal, 10)
@@ -72,7 +72,7 @@ struct PanelTestOverlayView: View {
 
                 Text(T("空格 / 点击 切换 · ← → 切换 · Esc 退出",
                        "Space or click to cycle · ← → to navigate · Esc to exit"))
-                    .font(.system(size: 11))
+                    .font(Typo.caption)
                     .foregroundColor(state.steps[state.index].textColor.opacity(0.55))
                     .padding(12)
                     .opacity(state.showsHint ? 1 : 0)

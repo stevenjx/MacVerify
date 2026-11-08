@@ -97,7 +97,7 @@ struct SecurityView: View {
 
                 Text(T("内核崩溃日志位于 /Library/Logs/DiagnosticReports。频繁崩溃可能来自内存、主板或外设故障。",
                        "Kernel panic reports live in /Library/Logs/DiagnosticReports. Frequent panics can indicate memory, logic board or peripheral faults."))
-                    .font(.system(size: 11))
+                    .font(Typo.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -125,16 +125,16 @@ struct SecurityView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 Image(systemName: level.symbol)
-                    .font(.system(size: 13))
+                    .font(Typo.body)
                     .foregroundColor(level.color)
                     .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(title).font(.system(size: 13, weight: .medium))
-                    Text(detail).font(.system(size: 10.5)).foregroundColor(.secondary)
+                    Text(title).font(Typo.body)
+                    Text(detail).font(Typo.caption).foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 16)
-                Text(value).font(.system(size: 12, weight: .medium)).foregroundColor(level == .neutral ? .secondary : level.color)
+                Text(value).font(Typo.body).foregroundColor(level == .neutral ? .secondary : level.color)
             }
             .padding(.vertical, 8)
             if !isLast { Divider().opacity(0.5) }

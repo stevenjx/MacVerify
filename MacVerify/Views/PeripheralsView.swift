@@ -21,9 +21,9 @@ struct PeripheralsView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(T("外设", "Peripherals")).font(.system(size: 20, weight: .semibold))
+            Text(T("外设", "Peripherals")).font(Typo.metric)
             Text(T("无线、摄像头与音频、USB 与雷雳的实测结果", "Wireless, camera and audio, USB and Thunderbolt as reported by this Mac"))
-                .font(.system(size: 11))
+                .font(Typo.caption)
                 .foregroundColor(.secondary)
         }
     }

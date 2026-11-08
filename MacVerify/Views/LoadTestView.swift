@@ -48,7 +48,7 @@ struct LoadTestView: View {
                     ForEach([180, 600, 1200], id: \.self) { seconds in
                         Button(action: { duration = seconds }) {
                             Text(durationLabel(seconds))
-                                .font(.system(size: 11, weight: .medium))
+                                .font(Typo.caption)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
                                 .background(duration == seconds ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.05))
@@ -71,7 +71,7 @@ struct LoadTestView: View {
 
                 if engine.isRunning {
                     ProgressView(value: engine.progress).progressViewStyle(.linear)
-                    Text(engine.status).font(.system(size: 10, design: .monospaced)).foregroundColor(.secondary)
+                    Text(engine.status).font(Typo.mono).foregroundColor(.secondary)
                 }
             }
         }
@@ -105,11 +105,11 @@ struct LoadTestView: View {
     private func explainRow(icon: String, text: String) -> some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 11))
+                .font(Typo.caption)
                 .foregroundColor(.secondary)
                 .frame(width: 16)
             Text(text)
-                .font(.system(size: 11))
+                .font(Typo.caption)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
@@ -123,20 +123,20 @@ struct LoadTestView: View {
                     SectionHeader(title: T("实时采样", "LIVE SAMPLES"))
                     Spacer()
                     Text(T("\(engine.samples) 个采样点", "\(engine.samples) samples"))
-                        .font(.system(size: 10))
+                        .font(Typo.caption)
                         .foregroundColor(.secondary)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(T("电压 (V)", "Voltage (V)")).font(.system(size: 10)).foregroundColor(.secondary)
-                    LineChart(values: engine.voltageSeries, color: .orange)
+                    Text(T("电压 (V)", "Voltage (V)")).font(Typo.caption).foregroundColor(.secondary)
+                    LineChart(values: engine.voltageSeries, color: Color.accentColor)
                         .frame(height: 110)
                 }
 
                 if !engine.temperatureSeries.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(T("电池温度 (°C)", "Battery temperature (°C)")).font(.system(size: 10)).foregroundColor(.secondary)
-                        LineChart(values: engine.temperatureSeries, color: .red)
+                        Text(T("电池温度 (°C)", "Battery temperature (°C)")).font(Typo.caption).foregroundColor(.secondary)
+                        LineChart(values: engine.temperatureSeries, color: StatusPalette.warning)
                             .frame(height: 90)
                     }
                 }
@@ -152,18 +152,18 @@ struct LoadTestView: View {
                         Circle().stroke(Color.primary.opacity(0.08), lineWidth: 6)
                         Circle()
                             .trim(from: 0, to: CGFloat(result.score) / 100)
-                            .stroke(scoreColor(result.score), style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                            .stroke(ScorePalette.color(result.score), style: StrokeStyle(lineWidth: 6, lineCap: .round))
                             .rotationEffect(.degrees(-90))
                         Text("\(result.score)")
-                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .font(Typo.metric)
                     }
                     .frame(width: 72, height: 72)
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(result.verdict).font(.system(size: 14, weight: .semibold))
+                        Text(result.verdict).font(Typo.bodyStrong)
                         Text(T("测试时长 \(Int(result.duration)) 秒 · \(result.findings.count) 项检查",
                                "\(Int(result.duration))s · \(result.findings.count) checks"))
-                            .font(.system(size: 10))
+                            .font(Typo.caption)
                             .foregroundColor(.secondary)
                     }
                     Spacer()
@@ -172,12 +172,12 @@ struct LoadTestView: View {
                 ForEach(result.findings) { finding in
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: finding.status.symbol)
-                            .font(.system(size: 11))
-                            .foregroundColor(color(for: finding.status))
+                            .font(Typo.caption)
+                            .foregroundColor(finding.status.color)
                             .padding(.top, 1)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(finding.title).font(.system(size: 11.5, weight: .medium))
-                            Text(finding.detail).font(.system(size: 10)).foregroundColor(.secondary)
+                            Text(finding.title).font(Typo.caption)
+                            Text(finding.detail).font(Typo.caption).foregroundColor(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         Spacer(minLength: 0)
@@ -194,17 +194,17 @@ struct LoadTestView: View {
                 SectionHeader(title: T("记录", "HISTORY"))
                 let store = AuditHistoryStore.shared
                 if store.results.isEmpty {
-                    Text(T("暂无记录", "No records")).font(.system(size: 11)).foregroundColor(.secondary)
+                    Text(T("暂无记录", "No records")).font(Typo.caption).foregroundColor(.secondary)
                 } else {
                     ForEach(store.results.prefix(8)) { item in
                         HStack {
                             Text(Format.dateTime(item.date))
-                                .font(.system(size: 10))
+                                .font(Typo.caption)
                                 .foregroundColor(.secondary)
                             Spacer()
-                            Text("\(item.score)").font(.system(size: 11, weight: .semibold, design: .rounded))
-                                .foregroundColor(scoreColor(item.score))
-                            Text(item.verdict).font(.system(size: 10)).foregroundColor(.secondary)
+                            Text("\(item.score)").font(Typo.captionStrong)
+                                .foregroundColor(ScorePalette.color(item.score))
+                            Text(item.verdict).font(Typo.caption).foregroundColor(.secondary)
                         }
                         Divider().opacity(0.4)
                     }
@@ -213,18 +213,4 @@ struct LoadTestView: View {
         }
     }
 
-    private func scoreColor(_ score: Int) -> Color {
-        if score >= 85 { return .green }
-        if score >= 70 { return .orange }
-        return .red
-    }
-
-    private func color(for status: FindingStatus) -> Color {
-        switch status {
-        case .passed: return .green
-        case .warning: return .orange
-        case .failed: return .red
-        case .info: return .secondary
-        }
-    }
 }

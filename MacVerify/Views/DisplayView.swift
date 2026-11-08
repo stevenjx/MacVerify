@@ -27,9 +27,9 @@ struct DisplayView: View {
                         )
                         VStack(spacing: 2) {
                             Text(display.resolutionText)
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .font(Typo.mono)
                             Text(display.refreshRate > 0 ? String(format: "%.0f Hz", display.refreshRate) : "—")
-                                .font(.system(size: 10))
+                                .font(Typo.caption)
                                 .foregroundColor(.secondary)
                         }
                     }
@@ -101,7 +101,7 @@ struct DisplayView: View {
                     SectionHeader(title: T("纯色检查", "SOLID-COLOUR TEST"))
                     Text(T("全屏显示纯黑、5% / 10% 灰与三原色，用于检查漏光、暗斑、色偏和坏点。检查时请调高屏幕亮度，并关闭环境光自适应。",
                            "Shows full-screen black, low grays and RGB primaries to inspect bleed, dark spots, tint and dead pixels. Raise brightness and disable ambient adaptation."))
-                        .font(.system(size: 11))
+                        .font(Typo.caption)
                         .foregroundColor(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
 

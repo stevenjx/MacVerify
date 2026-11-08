@@ -25,11 +25,11 @@ struct BatteryView: View {
             } else {
                 Card {
                     HStack(spacing: 12) {
-                        Image(systemName: "battery.0").font(.system(size: 24)).foregroundColor(.secondary)
+                        Image(systemName: "battery.0").font(Typo.display).foregroundColor(.secondary)
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(T("未检测到电池", "No battery detected")).font(.system(size: 13, weight: .medium))
+                            Text(T("未检测到电池", "No battery detected")).font(Typo.body)
                             Text(T("台式 Mac 或电池未连接时无法读取电池数据。", "Desktop Macs or a disconnected battery have no battery data."))
-                                .font(.system(size: 11)).foregroundColor(.secondary)
+                                .font(Typo.caption).foregroundColor(.secondary)
                         }
                         Spacer()
                     }
@@ -65,7 +65,7 @@ struct BatteryView: View {
             StatTile(title: T("当前电量", "Charge"),
                      value: String(format: "%.0f%%", battery.percent),
                      detail: battery.isCharging ? T("正在充电", "Charging") : (battery.isPluggedIn ? T("已接电源", "On power") : T("使用电池", "On battery")),
-                     color: .green, icon: "bolt")
+                     color: StatusPalette.ok, icon: "bolt")
             StatTile(title: T("满充容量", "Full charge"),
                      value: battery.healthCapacity > 0 ? "\(battery.healthCapacity) mAh" : "—",
                      detail: battery.designCapacity > 0 ? T("设计 \(battery.designCapacity) mAh", "Design \(battery.designCapacity) mAh") : nil,
@@ -75,9 +75,9 @@ struct BatteryView: View {
 
     private var healthColor: Color {
         switch battery.healthGrade {
-        case .excellent, .good: return .green
-        case .fair: return .orange
-        case .service: return .red
+        case .excellent, .good: return StatusPalette.ok
+        case .fair: return StatusPalette.warning
+        case .service: return StatusPalette.critical
         case .unknown: return .secondary
         }
     }
@@ -95,7 +95,7 @@ struct BatteryView: View {
                 InfoRow(label: T("剩余容量", "Remaining"), value: battery.remainingCapacity > 0 ? "\(battery.remainingCapacity) mAh" : "—")
                 InfoRow(label: T("永久性故障", "Permanent failure"),
                         value: battery.permanentFailure ? T("是", "Yes") : T("否", "No"),
-                        valueColor: battery.permanentFailure ? .red : .primary)
+                        valueColor: battery.permanentFailure ? StatusPalette.critical : .primary)
                 InfoRow(label: T("电压", "Voltage"), value: battery.voltage > 0 ? String(format: "%.2f V", battery.voltage) : "—")
                 InfoRow(label: T("电流", "Current"), value: String(format: "%+.2f A", battery.amperage))
                 InfoRow(label: T("温度", "Temperature"),
@@ -112,12 +112,12 @@ struct BatteryView: View {
                     StatTile(title: T("瞬时功率", "Instant power"),
                              value: String(format: "%.1f W", abs(battery.voltage * battery.amperage)),
                              detail: T("电压 × 电流", "Voltage × current"),
-                             color: .orange, icon: "bolt.fill")
+                             color: StatusPalette.warning, icon: "bolt.fill")
                     if let resistance = batteryStore.resistanceMilliohms {
                         StatTile(title: T("内阻估算", "Est. resistance"),
                                  value: String(format: "%.0f mΩ", resistance),
                                  detail: T("基于 \(batteryStore.resistanceSamples) 组 ΔV/ΔI 采样", "From \(batteryStore.resistanceSamples) ΔV/ΔI samples"),
-                                 color: resistance < 150 ? .green : .orange, icon: "waveform.path")
+                                 color: resistance < 150 ? StatusPalette.ok : StatusPalette.warning, icon: "waveform.path")
                     } else {
                         StatTile(title: T("内阻估算", "Est. resistance"),
                                  value: "—",
@@ -146,28 +146,28 @@ struct BatteryView: View {
 
                 if history.results.isEmpty {
                     Text(T("暂无记录。运行一次电池负载测试后会保存在这里。", "No records yet. Run a battery load test to create one."))
-                        .font(.system(size: 11))
+                        .font(Typo.caption)
                         .foregroundColor(.secondary)
                         .padding(.vertical, 6)
                 } else {
                     ForEach(history.results.prefix(5)) { result in
                         HStack(spacing: 10) {
                             Text("\(result.score)")
-                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                .font(Typo.metric)
                                 .frame(width: 32, height: 24)
-                                .background(scoreColor(result.score).opacity(0.12))
-                                .foregroundColor(scoreColor(result.score))
+                                .background(ScorePalette.color(result.score).opacity(0.12))
+                                .foregroundColor(ScorePalette.color(result.score))
                                 .cornerRadius(5)
                             VStack(alignment: .leading, spacing: 1) {
-                                Text(result.verdict).font(.system(size: 11, weight: .medium))
+                                Text(result.verdict).font(Typo.caption)
                                 Text(Format.dateTime(result.date))
-                                    .font(.system(size: 9))
+                                    .font(Typo.caption)
                                     .foregroundColor(.secondary)
                             }
                             Spacer()
                             if let health = result.healthPercent {
                                 Text(String(format: "%.1f%%", health))
-                                    .font(.system(size: 10, design: .monospaced))
+                                    .font(Typo.mono)
                                     .foregroundColor(.secondary)
                             }
                         }
@@ -178,9 +178,4 @@ struct BatteryView: View {
         }
     }
 
-    private func scoreColor(_ score: Int) -> Color {
-        if score >= 85 { return .green }
-        if score >= 70 { return .orange }
-        return .red
-    }
 }

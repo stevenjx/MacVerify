@@ -47,9 +47,9 @@ struct ComparisonView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(T("两次对比", "Comparison")).font(.system(size: 20, weight: .semibold))
+                    Text(T("两次对比", "Comparison")).font(Typo.metric)
                     Text(T("同一台机器的前后变化，或两台机器的差异", "Changes over time, or between two machines"))
-                        .font(.system(size: 11))
+                        .font(Typo.caption)
                         .foregroundColor(.secondary)
                 }
                 Spacer()
@@ -80,7 +80,7 @@ struct ComparisonView: View {
                     reload()
                 }
                 .buttonStyle(.plain)
-                .font(.system(size: 10))
+                .font(Typo.caption)
                 .foregroundColor(.secondary)
             }
         }
@@ -88,7 +88,7 @@ struct ComparisonView: View {
 
     private func picker(title: String, selection: Binding<UUID?>) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.system(size: 9, weight: .semibold)).foregroundColor(.secondary)
+            Text(title).font(Typo.captionStrong).foregroundColor(.secondary)
             Picker("", selection: selection) {
                 ForEach(snapshots) { snapshot in
                     Text("\(snapshot.displayTitle) · \(snapshot.source)").tag(Optional(snapshot.id))
@@ -109,7 +109,7 @@ struct ComparisonView: View {
                 fingerprintRow(title: T("对照", "Compare to"), snapshot: right)
                 Text(T("指纹由机型、序列号、芯片、内存、磁盘容量、面板与电池序列号算出。两份指纹相同说明是同一台机器的同一块硬件；报告字段被改动过则校验不通过。",
                        "The fingerprint is derived from model, serial, chip, memory, disk capacity, panel and battery serial. Equal fingerprints mean the same hardware. If any of those fields were edited, verification fails."))
-                    .font(.system(size: 9))
+                    .font(Typo.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -119,11 +119,11 @@ struct ComparisonView: View {
     private func fingerprintRow(title: String, snapshot: ScanSnapshot) -> some View {
         HStack(spacing: 8) {
             Text(title)
-                .font(.system(size: 10))
+                .font(Typo.caption)
                 .foregroundColor(.secondary)
                 .frame(width: 60, alignment: .leading)
             Text(DeviceFingerprint.display(snapshot.fingerprint ?? snapshot.recomputedFingerprint))
-                .font(.system(size: 11, design: .monospaced))
+                .font(Typo.mono)
                 .textSelection(.enabled)
             if let matches = snapshot.fingerprintMatches {
                 StatusBadge(text: matches ? T("校验通过", "Verified") : T("字段被改过", "Modified"),
@@ -157,15 +157,15 @@ struct ComparisonView: View {
 
                 HStack(spacing: 10) {
                     Text(T("项目", "Field"))
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(Typo.captionStrong)
                         .foregroundColor(.secondary)
                         .frame(width: 130, alignment: .leading)
                     Text(T("基准", "Baseline"))
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(Typo.captionStrong)
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     Text(T("对照", "Compare to"))
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(Typo.captionStrong)
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -177,25 +177,25 @@ struct ComparisonView: View {
                     if row.changed {
                         HStack(spacing: 10) {
                             Text(row.label)
-                                .font(.system(size: 11))
+                                .font(Typo.caption)
                                 .frame(width: 130, alignment: .leading)
                             Text(row.before)
-                                .font(.system(size: 11, design: .monospaced))
+                                .font(Typo.mono)
                                 .foregroundColor(.secondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             Text(row.after)
-                                .font(.system(size: 11, design: .monospaced))
+                                .font(Typo.mono)
                                 .foregroundColor(.primary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .padding(.vertical, 5)
-                        .background(Color.orange.opacity(0.08))
+                        .background(StatusPalette.warning.opacity(0.08))
                     }
                 }
 
                 if changed == 0 {
                     Text(T("两份快照的所有可比字段一致。", "Every comparable field is identical."))
-                        .font(.system(size: 11))
+                        .font(Typo.caption)
                         .foregroundColor(.secondary)
                         .padding(.vertical, 10)
                 }

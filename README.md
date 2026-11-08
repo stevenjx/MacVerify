@@ -72,7 +72,7 @@ MacVerify makes the evidence behind every claim inspectable.
 
 ## 安装 / Install
 
-1. 下载 `MacVerify-1.0.5.dmg`
+1. 下载 `MacVerify-1.0.6.dmg`
 2. 打开后将 `MacVerify.app` 拖入「应用程序」
 3. 首次打开如提示"无法验证开发者"，右键点击应用 → 打开
    （或执行 `xattr -dr com.apple.quarantine /Applications/MacVerify.app`）
@@ -120,6 +120,18 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   这类机型的存储容量核对标为「不做判断」，而不是猜测可换或板载。
 
 ## Changelog
+
+### 1.0.6 — 界面 P0：可读性与结论前置
+- **字号收口到 5 档**（26 / 20 / 15 / 13 / 11）：改造前有 16 种字号，正文 11pt、说明 9pt；
+  现在正文 13pt、说明 11pt，9pt 以下文字为 0 处。验机常在弱光环境看屏幕，这一项影响最大
+- **状态色统一**：浅色/深色各一套（`StatusPalette`），小字对比度 ≥ 4.5:1。
+  改造前 `.green/.orange/.red` 散落在 5 个文件、同一个「不一致」有三种写法，现在只有 1 处定义
+- **概览页拆分并加结论卡**：`OverviewView` 从 415 行降到 53 行，拆成 6 个文件；
+  顶部新增结论卡（结论文字与导出报告完全一致）+ 不一致/需确认/不可用三个计数 + 直接导出/对比入口
+- **关键检查项按严重度排序**：不一致 → 需确认 → 通过 → 不可用，异常项不再藏在中间
+- 深色模式下卡片改用高亮描边（原来几乎看不见）
+- 验收：字号档位 5、裸字号 0 处、状态色定义 1 处、`OverviewView` 53 行；
+  13 个页面冒烟通过；报告 JSON 与 1.0.5 逐字段一致（83 字段，指纹相同）
 
 ### 1.0.5
 - **新增「外设」页**：Wi-Fi / 蓝牙、摄像头与音频、USB 与雷雳，全部为实测值

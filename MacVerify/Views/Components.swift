@@ -5,17 +5,17 @@ import AppKit
 // MARK: - 容器
 
 struct Card<Content: View>: View {
-    var padding: CGFloat = 16
+    var padding: CGFloat = Space.lg
     @ViewBuilder var content: Content
 
     var body: some View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(NSColor.controlBackgroundColor)))
+            .background(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).fill(Surface.fill))
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                    .stroke(Surface.border, lineWidth: 1)
             )
     }
 }
@@ -27,10 +27,10 @@ struct PageHeader: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.system(size: 22, weight: .bold))
+            VStack(alignment: .leading, spacing: Space.xs) {
+                Text(title).font(Typo.display)
                 if let subtitle = subtitle {
-                    Text(subtitle).font(.system(size: 12)).foregroundColor(.secondary)
+                    Text(subtitle).font(Typo.body).foregroundColor(.secondary)
                 }
             }
             Spacer()
@@ -43,7 +43,7 @@ struct SectionHeader: View {
     let title: String
     var body: some View {
         Text(title)
-            .font(.system(size: 12, weight: .semibold))
+            .font(Typo.captionStrong)
             .foregroundColor(.secondary)
             .textCase(.uppercase)
     }
@@ -60,17 +60,18 @@ struct InfoRow: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Text(label).font(.system(size: 13)).foregroundColor(.secondary)
-                Spacer(minLength: 12)
+            HStack(spacing: Space.md) {
+                Text(label).font(Typo.body).foregroundColor(.secondary)
+                Spacer(minLength: Space.md)
                 Text(value)
-                    .font(monospaced ? .system(size: 13, design: .monospaced) : .system(size: 13, weight: .medium))
+                    .font(monospaced ? Typo.mono : Typo.value)
                     .foregroundColor(valueColor)
                     .multilineTextAlignment(.trailing)
                     .textSelection(.enabled)
             }
-            .padding(.vertical, 9)
-            if !isLast { Divider().opacity(0.5) }
+            // 13pt 正文 + 上下各 7，行高约 27；改造前是 9pt/13pt 混排，行高压到 22
+            .padding(.vertical, 7)
+            if !isLast { Divider().opacity(Surface.dividerOpacity) }
         }
     }
 }
@@ -78,12 +79,13 @@ struct InfoRow: View {
 enum BadgeLevel {
     case ok, warning, critical, neutral
 
+    /// 全 App 唯一的状态色来源。其他文件不要再写 .green / .orange / .red。
     var color: Color {
         switch self {
-        case .ok: return .green
-        case .warning: return .orange
-        case .critical: return .red
-        case .neutral: return .secondary
+        case .ok: return StatusPalette.ok
+        case .warning: return StatusPalette.warning
+        case .critical: return StatusPalette.critical
+        case .neutral: return StatusPalette.neutral
         }
     }
 
@@ -102,15 +104,16 @@ struct StatusBadge: View {
     var level: BadgeLevel = .neutral
 
     var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: level.symbol).font(.system(size: 10, weight: .bold))
-            Text(text).font(.system(size: 11, weight: .semibold))
+        HStack(spacing: Space.xs + 1) {
+            Image(systemName: level.symbol).font(Typo.icon(10, weight: .bold))
+            Text(text).font(Typo.captionStrong)
         }
         .foregroundColor(level.color)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, Space.sm)
+        .padding(.vertical, Space.xs)
         .background(level.color.opacity(0.12))
-        .cornerRadius(6)
+        .cornerRadius(Radius.badge)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -124,26 +127,26 @@ struct StatTile: View {
     var icon: String? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
+        VStack(alignment: .leading, spacing: Space.sm) {
+            HStack(spacing: Space.xs + 2) {
                 if let icon = icon {
-                    Image(systemName: icon).font(.system(size: 11, weight: .semibold)).foregroundColor(color)
+                    Image(systemName: icon).font(Typo.icon(11, weight: .semibold)).foregroundColor(color)
                 }
-                Text(title).font(.system(size: 11)).foregroundColor(.secondary)
+                Text(title).font(Typo.caption).foregroundColor(.secondary)
             }
             Text(value)
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .font(Typo.metric)
                 .foregroundColor(.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             if let detail = detail {
-                Text(detail).font(.system(size: 10)).foregroundColor(.secondary).lineLimit(2)
+                Text(detail).font(Typo.caption).foregroundColor(.secondary).lineLimit(2)
             }
         }
-        .padding(14)
+        .padding(Space.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(NSColor.controlBackgroundColor)))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.primary.opacity(0.05), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).fill(Surface.fill))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).stroke(Surface.border, lineWidth: 1))
     }
 }
 
@@ -167,15 +170,15 @@ struct RingGauge: View {
                     .rotationEffect(.degrees(-90))
                 VStack(spacing: 0) {
                     Text(unit == "%" ? String(format: "%.0f", value) : String(format: "%.1f", value))
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                    Text(unit).font(.system(size: 9, weight: .medium)).foregroundColor(.secondary)
+                        .font(Typo.metric)
+                    Text(unit).font(Typo.caption).foregroundColor(.secondary)
                 }
             }
             .frame(width: 96, height: 96)
 
-            Text(title).font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
+            Text(title).font(Typo.body).foregroundColor(.secondary)
             if let caption = caption {
-                Text(caption).font(.system(size: 10)).foregroundColor(.secondary)
+                Text(caption).font(Typo.caption).foregroundColor(.secondary)
             }
         }
     }
@@ -242,7 +245,7 @@ struct LineChart: View {
                     .fill(LinearGradient(colors: [color.opacity(0.22), color.opacity(0.02)], startPoint: .top, endPoint: .bottom))
                 } else {
                     Text(T("采样中…", "Sampling…"))
-                        .font(.system(size: 11))
+                        .font(Typo.caption)
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -258,14 +261,15 @@ struct NoticeBar: View {
     var level: BadgeLevel = .neutral
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: level.symbol).font(.system(size: 11, weight: .semibold)).foregroundColor(level.color)
-            Text(text).font(.system(size: 11)).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
+        HStack(alignment: .top, spacing: Space.sm) {
+            Image(systemName: level.symbol).font(Typo.icon(11, weight: .semibold)).foregroundColor(level.color)
+            // 提示条承载的是「不可用/无对照」这类关键说明，用正文号而不是小字，避免被跳过
+            Text(text).font(Typo.body).foregroundColor(.secondary).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
-        .padding(10)
+        .padding(Space.md)
         .background(level.color.opacity(0.08))
-        .cornerRadius(8)
+        .cornerRadius(Radius.control)
     }
 }
 
@@ -280,15 +284,15 @@ struct PrimaryButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                if let icon = icon { Image(systemName: icon).font(.system(size: 11, weight: .semibold)) }
-                Text(title).font(.system(size: 12, weight: .semibold))
+            HStack(spacing: Space.xs + 2) {
+                if let icon = icon { Image(systemName: icon).font(Typo.icon(11, weight: .semibold)) }
+                Text(title).font(Typo.bodyStrong)
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, Space.md + 2)
             .padding(.vertical, 7)
             .foregroundColor(.white)
             .background(color.opacity(enabled ? 1 : 0.4))
-            .cornerRadius(7)
+            .cornerRadius(Radius.control)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
@@ -303,14 +307,14 @@ struct SecondaryButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
-                if let icon = icon { Image(systemName: icon).font(.system(size: 11, weight: .semibold)) }
-                Text(title).font(.system(size: 12, weight: .medium))
+            HStack(spacing: Space.xs + 2) {
+                if let icon = icon { Image(systemName: icon).font(Typo.icon(11, weight: .semibold)) }
+                Text(title).font(Typo.body)
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, Space.md)
             .padding(.vertical, 6)
             .background(Color.primary.opacity(0.06))
-            .cornerRadius(7)
+            .cornerRadius(Radius.control)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)

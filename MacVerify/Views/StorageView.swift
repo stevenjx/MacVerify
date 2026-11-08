@@ -25,7 +25,8 @@ struct StorageView: View {
                     InfoRow(label: T("物理容量", "Physical capacity"),
                             value: storage.physicalBytes > 0
                                 ? "\(Format.bytes(storage.physicalBytes))（\(storage.physicalBytes) B）"
-                                : T("不可用", "Unavailable"))
+                                : T("不可用", "Unavailable"),
+                            state: storage.physicalBytes > 0 ? .normal : .unavailable)
                     InfoRow(label: T("可用卷容量", "Volume capacity"),
                             value: volumeCapacityText)
 
@@ -44,12 +45,16 @@ struct StorageView: View {
                     SectionHeader(title: T("累计读写", "CUMULATIVE I/O"))
                         .padding(.top, 14)
                         .padding(.bottom, 6)
-                    InfoRow(label: T("SSD 累计读取", "SSD lifetime read"), value: lifetimeReadText)
-                    InfoRow(label: T("SSD 累计写入", "SSD lifetime written"), value: lifetimeWriteText)
+                    InfoRow(label: T("SSD 累计读取", "SSD lifetime read"), value: lifetimeReadText,
+                            state: storage.smartLifetimeReadBytes == nil ? .unavailable : .normal)
+                    InfoRow(label: T("SSD 累计写入", "SSD lifetime written"), value: lifetimeWriteText,
+                            state: storage.smartLifetimeWrittenBytes == nil ? .unavailable : .normal)
                     InfoRow(label: T("卷级读取", "Volume read"),
-                            value: storage.statisticsAvailable ? Format.bytes(storage.readBytes) : T("不可用", "Unavailable"))
+                            value: storage.statisticsAvailable ? Format.bytes(storage.readBytes) : T("不可用", "Unavailable"),
+                            state: storage.statisticsAvailable ? .normal : .unavailable)
                     InfoRow(label: T("卷级写入", "Volume write"),
-                            value: storage.statisticsAvailable ? Format.bytes(storage.writtenBytes) : T("不可用", "Unavailable"))
+                            value: storage.statisticsAvailable ? Format.bytes(storage.writtenBytes) : T("不可用", "Unavailable"),
+                            state: storage.statisticsAvailable ? .normal : .unavailable)
 
                     if storage.smartAvailable {
                         SectionHeader(title: T("SMART 明细", "SMART DETAILS"))

@@ -22,7 +22,7 @@ struct ComparisonView: View {
             if snapshots.count < 2 {
                 Card {
                     VStack(alignment: .leading, spacing: 8) {
-                        SectionHeader(title: T("两次对比", "COMPARISON"))
+                        SectionHeader(title: T("两次对比", "COMPARISON"), icon: "arrow.left.arrow.right")
                         NoticeBar(
                             text: T("已保存的快照不足两份。每次启动 App 会自动保存一份，也可以点「保存当前状态」。若要对比另一台机器的数据，用「导入报告」载入对方导出的 JSON。",
                                    "Fewer than two snapshots are stored. One is saved automatically on each launch; you can also press Save current state. To compare against another Mac, import the JSON report it exported."),
@@ -104,7 +104,7 @@ struct ComparisonView: View {
     private func fingerprintCard(left: ScanSnapshot, right: ScanSnapshot) -> some View {
         Card {
             VStack(alignment: .leading, spacing: 6) {
-                SectionHeader(title: T("报告指纹", "REPORT FINGERPRINT")).padding(.bottom, 2)
+                SectionHeader(title: T("报告指纹", "REPORT FINGERPRINT"), icon: "number").padding(.bottom, 2)
                 fingerprintRow(title: T("基准", "Baseline"), snapshot: left)
                 fingerprintRow(title: T("对照", "Compare to"), snapshot: right)
                 Text(T("指纹由机型、序列号、芯片、内存、磁盘容量、面板与电池序列号算出。两份指纹相同说明是同一台机器的同一块硬件；报告字段被改动过则校验不通过。",
@@ -121,7 +121,8 @@ struct ComparisonView: View {
             Text(title)
                 .font(Typo.caption)
                 .foregroundColor(.secondary)
-                .frame(width: 60, alignment: .leading)
+                .lineLimit(1)
+                .frame(width: 76, alignment: .leading)
             Text(DeviceFingerprint.display(snapshot.fingerprint ?? snapshot.recomputedFingerprint))
                 .font(Typo.mono)
                 .textSelection(.enabled)
@@ -144,7 +145,7 @@ struct ComparisonView: View {
         return Card {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    SectionHeader(title: T("差异", "DIFFERENCES"))
+                    SectionHeader(title: T("差异", "DIFFERENCES"), icon: "arrow.left.arrow.right")
                     Spacer()
                     StatusBadge(
                         text: changed == 0
@@ -155,41 +156,29 @@ struct ComparisonView: View {
                 }
                 .padding(.bottom, 8)
 
-                HStack(spacing: 10) {
-                    Text(T("项目", "Field"))
-                        .font(Typo.captionStrong)
-                        .foregroundColor(.secondary)
-                        .frame(width: 130, alignment: .leading)
-                    Text(T("基准", "Baseline"))
-                        .font(Typo.captionStrong)
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Text(T("对照", "Compare to"))
-                        .font(Typo.captionStrong)
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .padding(.bottom, 4)
-
-                Divider().opacity(0.4)
+                Divider().opacity(Surface.dividerOpacity)
 
                 ForEach(rows) { row in
                     if row.changed {
-                        HStack(spacing: 10) {
-                            Text(row.label)
-                                .font(Typo.caption)
-                                .frame(width: 130, alignment: .leading)
-                            Text(row.before)
-                                .font(Typo.mono)
-                                .foregroundColor(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            Text(row.after)
-                                .font(Typo.mono)
-                                .foregroundColor(.primary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                        // 上下排新旧值：窄窗口也不会把两列挤成一团
+                        HStack(alignment: .top, spacing: Space.sm) {
+                            RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                                .fill(StatusPalette.warning)
+                                .frame(width: 3)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(row.label).font(Typo.bodyStrong)
+                                HStack(spacing: Space.xs) {
+                                    Text(T("原", "was")).font(Typo.caption).foregroundColor(.secondary)
+                                    Text(row.before).font(Typo.mono).foregroundColor(.secondary)
+                                }
+                                HStack(spacing: Space.xs) {
+                                    Text(T("现", "now")).font(Typo.caption).foregroundColor(.secondary)
+                                    Text(row.after).font(Typo.mono).foregroundColor(.primary)
+                                }
+                            }
+                            Spacer(minLength: 0)
                         }
-                        .padding(.vertical, 5)
-                        .background(StatusPalette.warning.opacity(0.08))
+                        .padding(.vertical, 6)
                     }
                 }
 

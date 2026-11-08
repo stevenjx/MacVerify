@@ -18,7 +18,7 @@ enum Typo {
     /// 页面主标题
     static let display = Font.system(size: 26, weight: .bold)
     /// 大号指标数字（仪表盘、统计块）
-    static let metric = Font.system(size: 20, weight: .semibold, design: .rounded)
+    static let metric = Font.system(size: 20, weight: .semibold, design: .rounded).monospacedDigit()
     /// 卡片标题、区块标题
     static let title = Font.system(size: 15, weight: .semibold)
     /// 正文

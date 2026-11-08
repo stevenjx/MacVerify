@@ -32,9 +32,9 @@ struct PeripheralsView: View {
 
     private var wifiCard: some View {
         Card {
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    SectionHeader(title: T("无线", "WIRELESS"))
+                    SectionHeader(title: T("无线", "WIRELESS"), icon: "wifi")
                     Spacer()
                     StatusBadge(
                         text: p.wifi.isPresent || p.bluetooth.isPresent
@@ -42,10 +42,11 @@ struct PeripheralsView: View {
                         level: p.wifi.isPresent || p.bluetooth.isPresent ? .ok : .warning
                     )
                 }
-                .padding(.bottom, 8)
+                .padding(.bottom, Space.sm)
 
                 InfoRow(label: T("Wi-Fi 硬件", "Wi-Fi hardware"),
-                        value: p.wifi.scanAvailable ? (p.wifi.isPresent ? T("存在", "Present") : T("不存在", "Absent")) : T("不可用", "Unavailable"))
+                        value: p.wifi.scanAvailable ? (p.wifi.isPresent ? T("存在", "Present") : T("不存在", "Absent")) : T("不可用", "Unavailable"),
+                        state: p.wifi.scanAvailable ? (p.wifi.isPresent ? .normal : .absent) : .unavailable)
                 if !p.wifi.bsdDevice.isEmpty {
                     InfoRow(label: T("接口", "Interface"), value: p.wifi.bsdDevice, monospaced: true)
                 }
@@ -70,9 +71,9 @@ struct PeripheralsView: View {
 
     private var audioCard: some View {
         Card {
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    SectionHeader(title: T("摄像头与音频", "CAMERA & AUDIO"))
+                    SectionHeader(title: T("摄像头与音频", "CAMERA & AUDIO"), icon: "camera")
                     Spacer()
                     StatusBadge(
                         text: p.camera.isPresent && p.builtinMicrophone != nil && p.builtinSpeaker != nil
@@ -80,20 +81,23 @@ struct PeripheralsView: View {
                         level: p.camera.isPresent && p.builtinMicrophone != nil && p.builtinSpeaker != nil ? .ok : .warning
                     )
                 }
-                .padding(.bottom, 8)
+                .padding(.bottom, Space.sm)
 
                 InfoRow(label: T("摄像头", "Camera"),
                         value: p.camera.isPresent
                             ? p.camera.names.joined(separator: " / ")
-                            : T("未检测到", "None"))
+                            : T("未检测到", "None"),
+                        state: p.camera.isPresent ? .normal : .absent)
                 InfoRow(label: T("内建麦克风", "Built-in mic"),
                         value: p.audioScanAvailable
                             ? (p.builtinMicrophone.map { T("\($0.inputChannels) 声道", "\($0.inputChannels) ch") } ?? T("未检测到", "None"))
-                            : T("不可用", "Unavailable"))
+                            : T("不可用", "Unavailable"),
+                        state: p.audioScanAvailable ? (p.builtinMicrophone == nil ? .absent : .normal) : .unavailable)
                 InfoRow(label: T("内建扬声器", "Built-in speaker"),
                         value: p.audioScanAvailable
                             ? (p.builtinSpeaker.map { T("\($0.outputChannels) 声道", "\($0.outputChannels) ch") } ?? T("未检测到", "None"))
-                            : T("不可用", "Unavailable"))
+                            : T("不可用", "Unavailable"),
+                        state: p.audioScanAvailable ? (p.builtinSpeaker == nil ? .absent : .normal) : .unavailable)
 
                 let external = p.audio.filter { !$0.isBuiltin }
                 if !external.isEmpty {
@@ -112,13 +116,14 @@ struct PeripheralsView: View {
 
     private var busCard: some View {
         Card {
-            VStack(spacing: 0) {
-                SectionHeader(title: T("总线与接口", "BUSES & PORTS")).padding(.bottom, 8)
+            VStack(alignment: .leading, spacing: 0) {
+                SectionHeader(title: T("总线与接口", "BUSES & PORTS"), icon: "cable.connector")
+                    .padding(.bottom, Space.sm)
 
                 if !p.usbScanAvailable {
-                    InfoRow(label: T("USB", "USB"), value: T("不可用", "Unavailable"))
+                    InfoRow(label: T("USB", "USB"), value: T("不可用", "Unavailable"), state: .unavailable)
                 } else if p.usbDevices.isEmpty {
-                    InfoRow(label: T("USB", "USB"), value: T("当前未连接设备", "No devices connected"))
+                    InfoRow(label: T("USB", "USB"), value: T("当前未连接设备", "No devices connected"), state: .absent)
                 } else {
                     InfoRow(label: T("USB 设备", "USB devices"), value: "\(p.usbDevices.count)")
                     ForEach(Array(p.usbDevices.enumerated()), id: \.offset) { _, device in
@@ -135,7 +140,7 @@ struct PeripheralsView: View {
                     InfoRow(label: T("已连接设备", "Ports in use"), value: "\(used)",
                             isLast: true)
                 } else {
-                    InfoRow(label: T("雷雳口", "Thunderbolt ports"), value: T("不可用", "Unavailable"), isLast: true)
+                    InfoRow(label: T("雷雳口", "Thunderbolt ports"), value: T("不可用", "Unavailable"), isLast: true, state: .unavailable)
                 }
             }
         }

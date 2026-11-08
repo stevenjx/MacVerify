@@ -41,15 +41,31 @@ struct PageHeader: View {
 
 struct SectionHeader: View {
     let title: String
+    var icon: String? = nil
+
     var body: some View {
-        Text(title)
-            .font(Typo.captionStrong)
-            .foregroundColor(.secondary)
-            .textCase(.uppercase)
+        HStack(spacing: Space.xs + 1) {
+            if let icon = icon {
+                Image(systemName: icon).font(Typo.icon(10, weight: .semibold))
+            }
+            Text(title)
+                .font(Typo.captionStrong)
+                .textCase(.uppercase)
+        }
+        .foregroundColor(.secondary)
     }
 }
 
 // MARK: - 行 / 徽标
+
+/// 数值的三种「没有值」情形，必须区分开：
+/// - normal：有值
+/// - unavailable：本机不提供（读不到），配减号，提示这是系统限制
+/// - absent：确实不存在（如没插 USB 设备、没有电池），配斜杠，提示这是事实
+/// 两者都不该显示成 0 或用空白糊过去。
+enum ValueState {
+    case normal, unavailable, absent
+}
 
 struct InfoRow: View {
     let label: String
@@ -57,17 +73,27 @@ struct InfoRow: View {
     var monospaced: Bool = false
     var valueColor: Color = .primary
     var isLast: Bool = false
+    var state: ValueState = .normal
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: Space.md) {
                 Text(label).font(Typo.body).foregroundColor(.secondary)
                 Spacer(minLength: Space.md)
-                Text(value)
-                    .font(monospaced ? Typo.mono : Typo.value)
-                    .foregroundColor(valueColor)
-                    .multilineTextAlignment(.trailing)
-                    .textSelection(.enabled)
+                if state == .normal {
+                    Text(value)
+                        .font(monospaced ? Typo.mono : Typo.value)
+                        .foregroundColor(valueColor)
+                        .multilineTextAlignment(.trailing)
+                        .textSelection(.enabled)
+                } else {
+                    HStack(spacing: Space.xs) {
+                        Image(systemName: state == .unavailable ? "minus.circle" : "slash.circle")
+                            .font(Typo.icon(10))
+                        Text(value).font(Typo.body)
+                    }
+                    .foregroundColor(StatusPalette.neutral)
+                }
             }
             // 13pt 正文 + 上下各 7，行高约 27；改造前是 9pt/13pt 混排，行高压到 22
             .padding(.vertical, 7)

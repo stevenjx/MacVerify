@@ -166,23 +166,32 @@ struct RootView: View {
     private func sidebarRow(_ item: SidebarItem) -> some View {
         let isSelected = selection == item
         return Button(action: { selection = item }) {
-            HStack(spacing: 9) {
+            HStack(spacing: Space.sm + 1) {
                 Image(systemName: item.icon)
-                    .font(Typo.body)
+                    .font(Typo.icon(13, weight: .medium))
                     .frame(width: 18)
-                    .foregroundColor(isSelected ? .white : .secondary)
+                    .foregroundColor(isSelected ? Color.accentColor : .secondary)
                 Text(item.title)
                     .font(isSelected ? Typo.bodyStrong : Typo.body)
-                    .foregroundColor(isSelected ? .white : .primary)
+                    .foregroundColor(.primary)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, Space.sm + 2)
             .padding(.vertical, 6)
             .background(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(isSelected ? Color.accentColor : Color.clear)
+                RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
+                    .fill(isSelected ? Color.accentColor.opacity(0.14) : Color.clear)
             )
-            .padding(.horizontal, 8)
+            // 选中态改为「淡色块 + 左侧高亮条」：整块铺满饱和色的视觉压迫感太强
+            .overlay(alignment: .leading) {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                        .fill(Color.accentColor)
+                        .frame(width: 2.5)
+                        .padding(.vertical, 4)
+                }
+            }
+            .padding(.horizontal, Space.sm)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

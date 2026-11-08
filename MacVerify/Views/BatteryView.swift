@@ -89,10 +89,14 @@ struct BatteryView: View {
             VStack(spacing: 0) {
                 SectionHeader(title: T("电池信息", "BATTERY INFO")).padding(.bottom, 8)
                 InfoRow(label: T("序列号", "Serial"), value: battery.serialNumber, monospaced: true)
-                InfoRow(label: T("计量芯片", "Gauge chip"), value: battery.gaugeModel.isEmpty ? T("不可用", "Unavailable") : battery.gaugeModel, monospaced: true)
-                InfoRow(label: T("设计容量", "Design capacity"), value: battery.designCapacity > 0 ? "\(battery.designCapacity) mAh" : T("不可用", "Unavailable"))
-                InfoRow(label: T("当前满充容量", "Full charge capacity"), value: battery.healthCapacity > 0 ? "\(battery.healthCapacity) mAh" : T("不可用", "Unavailable"))
-                InfoRow(label: T("剩余容量", "Remaining"), value: battery.remainingCapacity > 0 ? "\(battery.remainingCapacity) mAh" : "—")
+                InfoRow(label: T("计量芯片", "Gauge chip"), value: battery.gaugeModel.isEmpty ? T("不可用", "Unavailable") : battery.gaugeModel,
+                        monospaced: true, state: battery.gaugeModel.isEmpty ? .unavailable : .normal)
+                InfoRow(label: T("设计容量", "Design capacity"), value: battery.designCapacity > 0 ? "\(battery.designCapacity) mAh" : T("不可用", "Unavailable"),
+                        state: battery.designCapacity > 0 ? .normal : .unavailable)
+                InfoRow(label: T("当前满充容量", "Full charge capacity"), value: battery.healthCapacity > 0 ? "\(battery.healthCapacity) mAh" : T("不可用", "Unavailable"),
+                        state: battery.healthCapacity > 0 ? .normal : .unavailable)
+                InfoRow(label: T("剩余容量", "Remaining"), value: battery.remainingCapacity > 0 ? "\(battery.remainingCapacity) mAh" : T("无数据", "None"),
+                        state: battery.remainingCapacity > 0 ? .normal : .absent)
                 InfoRow(label: T("永久性故障", "Permanent failure"),
                         value: battery.permanentFailure ? T("是", "Yes") : T("否", "No"),
                         valueColor: battery.permanentFailure ? StatusPalette.critical : .primary)

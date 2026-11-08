@@ -14,7 +14,7 @@
 
 ## 完成度总览
 
-上次更新：2026-11-08 · v1.0.4
+上次更新：2026-11-08 · v1.0.5
 
 | 领域 | 完成度 | 已完成 / 总数 | 说明 |
 | --- | --- | --- | --- |
@@ -23,9 +23,9 @@
 | C SMART | 80% | 4 / 5 | 内置 SSD 全字段可读；外接盘待验证 |
 | D 原装性核对 | 100% | 12 / 12 | 41 个机型系列 / 57 个标识符，覆盖 Intel 2016–2020 与 Apple Silicon 全系 |
 | E 报告与导出 | 100% | 3 / 3 | Markdown + JSON + 命令行自检 |
-| F 外设与功能测试 | 0% | 0 / 5 | 未开始 |
+| F 外设与功能测试 | 100% | 5 / 5 | 无线 / 摄像头与音频 / USB 与雷雳 / 两次对比 / 报告指纹 |
 | G 工程化 | 20% | 1 / 5 | 打包流程已成型，缺 CI 与单元测试 |
-| **合计** | **约 80%** | **33 / 41** | |
+| **合计** | **约 88%** | **36 / 41** | |
 
 状态图例：`完成` / `进行中` / `待执行` / `不做`（附原因）
 
@@ -119,15 +119,30 @@ PROLED XDR 是 3024×1986（16 吋为 3456×2234 对 3472×2266），因此分�
 | E-02 | `MACVERIFY_DUMP_REPORT` 命令行自检 | 完成 |
 | E-03 | 报告含一致性核验与原装性核对章节 | 完成 |
 
-## F 外设与功能测试（待执行）
+## F 外设与功能测试（全部完成）
 
 | 编号 | 标题 | 状态 | 数据源 |
 | --- | --- | --- | --- |
-| F-01 | Wi-Fi / 蓝牙硬件存在性 | 待执行 | SPAirPortDataType / SPBluetoothDataType |
-| F-02 | 摄像头 / 麦克风 / 扬声器存在性 | 待执行 | SPCameraDataType / SPAudioDataType |
-| F-03 | USB / Thunderbolt 设备树 | 待执行 | SPUSBDataType / SPThunderboltDataType |
-| F-04 | 两次检测对比（同机不同时间 / 两机并排） | 待执行 | 报告 JSON |
-| F-05 | 报告指纹（序列号哈希，防换头） | 待执行 | — |
+| F-01 | Wi-Fi / 蓝牙硬件存在性 | 完成 | `networksetup -listallhardwareports` + IORegistry `AppleBCMWLANCore.ChipSet` / `SPBluetoothDataType` |
+| F-02 | 摄像头 / 麦克风 / 扬声器存在性 | 完成 | SPCameraDataType / SPAudioDataType |
+| F-03 | USB / Thunderbolt 设备树 | 完成 | SPUSBDataType / SPThunderboltDataType |
+| F-04 | 两次检测对比（同机不同时间 / 两机并排） | 完成 | 报告 JSON + UserDefaults 快照（最多 12 份） |
+| F-05 | 报告指纹（序列号哈希，防换头） | 完成 | CryptoKit SHA-256，取前 16 位 |
+
+**F 系列实现备注**（写下来，避免下次又走一遍弯路）：
+
+- **Wi-Fi 不用 `SPAirPortDataType`**：实测一次要 3.7 秒，而且会枚举周边热点。
+  验机只需要「有没有这块硬件 + 芯片型号」，改用 `networksetup -listallhardwareports`（0.02s）
+  加 IORegistry 的 `ChipSet`（实测 4388 → BCM4388，与蓝牙 `BCM_4388` 互相印证）。
+- **`AppleBCMWLANCore` 按类名匹配不到**（DriverKit 服务，`IOServiceMatching` 返回 0），
+  只能遍历 `IOUserService` 后用固件串 `wl0:` 认出无线那颗；Intel 机型仍走 `IO80211Controller` 老通路。
+- **蓝牙 / 摄像头 / 音频 / USB / 雷电合并成一次 `system_profiler` 调用**：分 5 次各起一个进程要 1.2s+，
+  合并后约 0.3s。整机扫描因此维持在 1.6–2.6s。
+- **USB 解析用固定样例验证**：开发机没有任何 USB 设备（`SPUSBDataType` 返回空数组），
+  真实设备字段只能靠合成 JSON 覆盖：总线排除、集线器递归、厂商/速率/序列号、空数组=没插设备。
+  空数组与「读不到」必须区分，否则会把正常机器报成异常。
+- **指纹只锁身份字段**：机型、序列号、芯片、内存、物理容量、面板、电池序列号。
+  改电池循环不会让指纹变化（那是会漂移的使用痕迹），改序列号 / 换屏 / 换盘才会。
 
 ## G 工程化（1 / 5）
 

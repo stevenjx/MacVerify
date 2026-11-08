@@ -207,6 +207,9 @@ enum ReportService {
         }
         sections.append(ReportSection(title: "电池 / Battery", items: batteryItems))
 
+        // 外设
+        sections.append(ReportSection(title: "外设 / Peripherals", items: peripheralsItems(info.peripherals)))
+
         // 一致性核验
         var consistencyItems: [ReportItem] = []
         for finding in ConsistencyAudit.run(info: info) {
@@ -263,6 +266,7 @@ enum ReportService {
         lines.append("")
         lines.append("- 工具版本：\(BuildInfo.version) (\(BuildInfo.build))")
         lines.append("- 检测时间：\(Format.dateTime(info.scannedAt))")
+        lines.append("- 报告指纹：\(DeviceFingerprint.display(fingerprint(of: report.sections)))")
         lines.append("- 结论：**\(report.verdict)**")
         lines.append("")
         lines.append("> 所有数值均为本机只读接口的实测结果。标为 `unavailable` 的项表示本机未向用户态提供该数据，")
@@ -289,6 +293,7 @@ enum ReportService {
             "tool": "MacVerify",
             "version": BuildInfo.version,
             "build": BuildInfo.build,
+            "fingerprint": fingerprint(of: report.sections),
             "scanned_at": ISO8601DateFormatter().string(from: info.scannedAt),
             "verdict": report.verdict,
             "issue_count": report.issues
@@ -365,6 +370,113 @@ enum ReportService {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty || trimmed == "—" { return nil }
         return trimmed
+    }
+
+    // MARK: - 指纹
+
+    /// 从已生成的报告行里取「硬件身份」字段算指纹。
+    /// 直接读报告本身而不是重新采集，保证导出与校验用的是同一份数值。
+    static func fingerprint(of sections: [ReportSection]) -> String {
+        var values: [String: String] = [:]
+        for section in sections {
+            for entry in section.items where DeviceFingerprint.identityKeys.contains(entry.key) {
+                values[entry.key] = entry.value ?? "unavailable"
+            }
+        }
+        return DeviceFingerprint.compute(values)
+    }
+
+    // MARK: - 外设
+    private static func peripheralsItems(_ p: PeripheralsInfo) -> [ReportItem] {
+        var items: [ReportItem] = []
+
+        var wifiItems: [ReportItem] = []
+        if !p.wifi.scanAvailable {
+            wifiItems.append(item("wifi", "Wi-Fi 硬件", nil, .unavailable))
+        } else {
+            wifiItems.append(item("wifi", "Wi-Fi 硬件",
+                                  p.wifi.isPresent ? "present" : "absent",
+                                  p.wifi.isPresent ? .ok : .warning))
+        }
+        if !p.wifi.bsdDevice.isEmpty {
+            wifiItems.append(item("wifi_device", "Wi-Fi 接口", p.wifi.bsdDevice, .ok))
+        }
+        if !p.wifi.chipset.isEmpty {
+            wifiItems.append(item("wifi_chipset", "Wi-Fi 芯片", p.wifi.chipset, .ok))
+        }
+        if !p.wifi.macSuffix.isEmpty {
+            wifiItems.append(item("wifi_mac", "MAC 后四位", p.wifi.macSuffix, .ok,
+                                  note: "完整 MAC 属于设备标识，不记录"))
+        }
+        items.append(contentsOf: wifiItems)
+
+        items.append(item("bluetooth", "蓝牙硬件",
+                          p.bluetooth.isPresent ? "present" : "absent",
+                          p.bluetooth.isPresent ? .ok : .warning))
+        if p.bluetooth.isPresent {
+            items.append(item("bt_chipset", "蓝牙芯片", emptyToNil(p.bluetooth.chipset), .ok))
+            items.append(item("bt_transport", "蓝牙总线", emptyToNil(p.bluetooth.transport), .ok))
+            items.append(item("bt_firmware", "蓝牙固件", emptyToNil(p.bluetooth.firmwareVersion), .ok))
+        }
+
+        // 摄像头：只报系统枚举到的设备，不推断是否内建
+        items.append(item("camera", "摄像头（系统枚举）",
+                          p.camera.isPresent ? "\(p.camera.names.count)" : "0",
+                          p.camera.isPresent ? .ok : .warning,
+                          note: p.camera.names.isEmpty ? nil : p.camera.names.joined(separator: " / ")))
+
+        if !p.audioScanAvailable {
+            items.append(item("audio", "音频设备", nil, .unavailable))
+        } else {
+            if let mic = p.builtinMicrophone {
+                items.append(item("mic", "内建麦克风", "\(mic.inputChannels) ch", .ok, note: mic.name))
+            } else {
+                items.append(item("mic", "内建麦克风", "absent", .warning))
+            }
+            if let speaker = p.builtinSpeaker {
+                items.append(item("speaker", "内建扬声器", "\(speaker.outputChannels) ch", .ok, note: speaker.name))
+            } else {
+                items.append(item("speaker", "内建扬声器", "absent", .warning))
+            }
+            let external = p.audio.filter { !$0.isBuiltin }
+            if !external.isEmpty {
+                items.append(item("audio_other", "其他音频设备",
+                                  "\(external.count)", .ok,
+                                  note: external.map(\.name).joined(separator: " / ")))
+            }
+        }
+
+        // USB：空数组是「没插设备」，不是读不到
+        if !p.usbScanAvailable {
+            items.append(item("usb", "USB 设备", nil, .unavailable))
+            items.append(item("usb_list", "USB 设备清单", nil, .unavailable))
+        } else if p.usbDevices.isEmpty {
+            items.append(item("usb", "USB 设备", "0", .ok, note: "当前未连接 USB 设备"))
+            items.append(item("usb_list", "USB 设备清单", "none", .ok))
+        } else {
+            let names = p.usbDevices.map(\.name).joined(separator: " / ")
+            items.append(item("usb", "USB 设备", "\(p.usbDevices.count)", .ok,
+                              note: p.usbDevices.map { device in
+                                  device.speed.isEmpty ? device.name : "\(device.name) (\(device.speed))"
+                              }.joined(separator: " / ")))
+            items.append(item("usb_list", "USB 设备清单", names, .ok))
+        }
+
+        // 雷电：列出总线与各口状态
+        if !p.thunderboltScanAvailable {
+            items.append(item("thunderbolt", "雷雳总线", nil, .unavailable))
+        } else if p.thunderboltBuses.isEmpty {
+            items.append(item("thunderbolt", "雷雳总线", "0", .ok, note: "未检测到雷雳控制器"))
+        } else {
+            let ports = p.thunderboltBuses.reduce(0) { $0 + $1.receptacleStatus.count }
+            let connected = p.thunderboltBuses.flatMap(\.receptacleStatus)
+                .filter { $0 != "receptacle_no_devices_connected" }.count
+            items.append(item("thunderbolt", "雷雳总线", "\(p.thunderboltBuses.count)", .ok,
+                              note: p.thunderboltBuses.first?.speed))
+            items.append(item("thunderbolt_ports", "雷雳口数", "\(ports)", .ok))
+            items.append(item("thunderbolt_connected", "雷电口已连接设备", "\(connected)", .ok))
+        }
+        return items
     }
 
     private static func coresText(_ info: MacSystemInfo) -> String? {

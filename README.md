@@ -72,7 +72,7 @@ MacVerify makes the evidence behind every claim inspectable.
 
 ## 安装 / Install
 
-1. 下载 `MacVerify-1.0.4.dmg`
+1. 下载 `MacVerify-1.0.5.dmg`
 2. 打开后将 `MacVerify.app` 拖入「应用程序」
 3. 首次打开如提示"无法验证开发者"，右键点击应用 → 打开
    （或执行 `xattr -dr com.apple.quarantine /Applications/MacVerify.app`）
@@ -120,6 +120,21 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   这类机型的存储容量核对标为「不做判断」，而不是猜测可换或板载。
 
 ## Changelog
+
+### 1.0.5
+- **新增「外设」页**：Wi-Fi / 蓝牙、摄像头与音频、USB 与雷雳，全部为实测值
+  - Wi-Fi 存在性走 `networksetup -listallhardwareports`（0.02s），芯片型号读 IORegistry
+    `AppleBCMWLANCore.ChipSet`（实测 4388 → BCM4388，与蓝牙 `BCM_4388` 互相印证）
+  - 不用 `system_profiler SPAirPortDataType`：实测 3.7 秒，且会枚举周边热点，验机不需要
+  - MAC 只保留后两组（如 50:91），完整地址属于设备标识，不展示不入库
+  - 内建麦克风 / 扬声器按 `coreaudio_device_transport == builtin` 判定，不是靠设备名猜
+  - USB 列表为空表示「当前没插设备」，与「读不到」严格区分
+- **两次检测对比**：每次启动自动存一份快照（最多 12 份），可任选两份逐字段比对；
+  也能导入另一台机器导出的报告 JSON 做并排对照。完全相同硬件状态不会重复堆积
+  （上电时长等漂移字段不参与判重）
+- **报告指纹**：由机型、序列号、芯片、内存、物理容量、面板与电池序列号算出 SHA-256 前 16 位，
+  写入 Markdown 与 JSON。改序列号 / 换屏 / 换盘会改变指纹；改电池循环不会
+- 报告新增「外设」章节，JSON 增加 `fingerprint` 与 `usb_list` / `thunderbolt_ports` 字段
 
 ### 1.0.4
 - **原装性基线补满 Apple Silicon 全系**：D-10 / D-11 / D-12 全部完成，

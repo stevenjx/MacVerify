@@ -10,6 +10,8 @@ final class SystemInfoStore: ObservableObject {
     @Published private(set) var isScanning = false
 
     private let scanQueue = DispatchQueue(label: "macverify.system.scan", qos: .userInitiated)
+    /// 每次启动只自动存一份快照，避免反复点扫描把历史刷满
+    private var hasSavedLaunchSnapshot = false
 
     init() {
         refresh()
@@ -21,9 +23,17 @@ final class SystemInfoStore: ObservableObject {
         scanQueue.async { [weak self] in
             guard let self = self else { return }
             let collected = self.collect()
+            // 首次扫描后自动留一份快照，供「两次对比」使用；不需要额外点击。
+            let shouldSave = !self.hasSavedLaunchSnapshot
+            if shouldSave { self.hasSavedLaunchSnapshot = true }
+            let snapshot = shouldSave
+                ? ScanSnapshot.make(info: collected, battery: BatteryStore.readBattery(),
+                                    source: T("本机扫描", "Local scan"))
+                : nil
             DispatchQueue.main.async {
                 self.info = collected
                 self.isScanning = false
+                if let snapshot = snapshot { ScanHistoryStore.append(snapshot) }
             }
         }
     }
@@ -104,6 +114,7 @@ final class SystemInfoStore: ObservableObject {
 
         data.display = collectDisplay(report: displays)
         data.storage = collectStorage(base: StorageInfo())
+        data.peripherals = PeripheralsService.collect()
 
         // 安全与合规状态（调用系统工具，只读）
         data.activationLock = Self.activationLockStatus(from: hardware)

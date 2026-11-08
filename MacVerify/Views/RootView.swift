@@ -13,6 +13,8 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     case battery
     case loadTest
     case power
+    case peripherals
+    case comparison
     case about
 
     var id: String { rawValue }
@@ -29,6 +31,8 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .battery: return T("电池", "Battery")
         case .loadTest: return T("电池负载测试", "Load Test")
         case .power: return T("供电", "Power")
+        case .peripherals: return T("外设", "Peripherals")
+        case .comparison: return T("两次对比", "Compare")
         case .about: return T("关于", "About")
         }
     }
@@ -45,6 +49,8 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .battery: return "battery.100"
         case .loadTest: return "waveform.path.ecg"
         case .power: return "powerplug"
+        case .peripherals: return "cable.connector"
+        case .comparison: return "arrow.left.arrow.right"
         case .about: return "info.circle"
         }
     }
@@ -53,7 +59,8 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         [
             (T("检测", "INSPECTION"), [.overview, .hardware, .security, .display, .storage]),
             (T("测试", "TESTS"), [.performance, .input, .battery, .loadTest, .power]),
-            (T("其他", "OTHER"), [.about])
+            (T("接口", "PORTS"), [.peripherals]),
+            (T("其他", "OTHER"), [.comparison, .about])
         ]
     }
 }
@@ -194,6 +201,8 @@ struct RootView: View {
         case .battery: BatteryView()
         case .loadTest: LoadTestView()
         case .power: PowerView()
+        case .peripherals: PeripheralsView()
+        case .comparison: ComparisonView()
         case .about: AboutView()
         }
     }

@@ -216,6 +216,85 @@ enum HealthGrade {
     }
 }
 
+// MARK: - 外设
+
+/// Wi-Fi 硬件。存在性取 networksetup 的硬件端口表（快且不需要扫描周边网络），
+/// 芯片型号取 IORegistry 的 AppleBCMWLANCore.ChipSet。
+struct WiFiInfo {
+    var isPresent = false
+    /// 是否成功枚举硬件端口。读不到与没有是两件事。
+    var scanAvailable = false
+    var hardwarePort: String = ""
+    var bsdDevice: String = ""
+    /// 芯片代号（如 "BCM4388"）。取不到就留空，不猜。
+    var chipset: String = ""
+    var firmwareVersion: String = ""
+    /// MAC 只保留后 4 位用于人工核对，完整地址属于设备标识，不展示也不入库。
+    var macSuffix: String = ""
+}
+
+struct BluetoothInfo {
+    var isPresent = false
+    var chipset: String = ""
+    var vendor: String = ""
+    var transport: String = ""
+    var firmwareVersion: String = ""
+}
+
+struct CameraInfo {
+    var isPresent = false
+    var names: [String] = []
+}
+
+struct AudioPeripheral {
+    var name: String
+    /// 内建 / USB / 蓝牙等，来自 coreaudio_device_transport
+    var transport: String
+    var inputChannels: Int
+    var outputChannels: Int
+    var sampleRate: Int
+
+    var isBuiltin: Bool { transport == "coreaudio_device_type_builtin" }
+    var isInput: Bool { inputChannels > 0 }
+    var isOutput: Bool { outputChannels > 0 }
+}
+
+struct USBDevice {
+    var name: String
+    /// 厂商名，系统未提供时为空
+    var vendor: String
+    /// 传输速率描述，如 "Up to 480 Mb/s"
+    var speed: String
+    var serialNumber: String
+}
+
+struct ThunderboltBus {
+    var name: String
+    /// 每个口的连接状态
+    var receptacleStatus: [String]
+    var speed: String
+}
+
+struct PeripheralsInfo {
+    var wifi = WiFiInfo()
+    var bluetooth = BluetoothInfo()
+    var camera = CameraInfo()
+    var audio: [AudioPeripheral] = []
+    /// 是否成功枚举了音频设备。读不到和没有设备是两件事。
+    var audioScanAvailable = false
+    var usbDevices: [USBDevice] = []
+    var usbScanAvailable = false
+    var thunderboltBuses: [ThunderboltBus] = []
+    var thunderboltScanAvailable = false
+
+    var builtinMicrophone: AudioPeripheral? {
+        audio.first { $0.isBuiltin && $0.isInput }
+    }
+    var builtinSpeaker: AudioPeripheral? {
+        audio.first { $0.isBuiltin && $0.isOutput }
+    }
+}
+
 struct MacSystemInfo {
     var modelIdentifier: String = "—"
     var modelName: String = "—"
@@ -262,6 +341,7 @@ struct MacSystemInfo {
     var display = DisplayInfo()
     var storage = StorageInfo()
     var assetTag: String = ""
+    var peripherals = PeripheralsInfo()
 
     // MARK: - 冗余数据源（用于一致性核验）
     // 同一事实从两条独立通路读取，任一处被改写都会出现不一致。

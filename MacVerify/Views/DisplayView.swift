@@ -50,11 +50,53 @@ struct DisplayView: View {
                      String(format: "0x%04X / 0x%04X", display.vendorID, display.modelID), mono: true)]
     }
 
+    /// EIZO Monitor Test 的测试项清单：编号 + 名称，和全屏里看到的顺序完全一致
+    private var screenTestCard: some View {
+        Card(title: T("屏幕检查", "Screen tests"), icon: "rectangle.on.rectangle") {
+            VStack(alignment: .leading, spacing: Space.md) {
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: Space.lg),
+                                    GridItem(.flexible(), spacing: Space.lg)],
+                          alignment: .leading, spacing: 6) {
+                    ForEach(PanelTestSuite.steps()) { step in
+                        HStack(spacing: Space.sm) {
+                            Text(String(format: "%02d", step.number))
+                                .font(Typo.mono)
+                                .foregroundColor(.secondary)
+                                .frame(width: 18, alignment: .trailing)
+                            Text(step.title)
+                                .font(Typo.body)
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                    }
+                }
+
+                Rectangle().fill(Surface.hairline).frame(height: 1)
+
+                HStack(alignment: .center, spacing: Space.lg) {
+                    Text(T("全屏逐项检查：调高亮度、关闭原彩显示与环境光自适应。圆要正、线要直、灰阶不跳变、白底无暗点、黑底无亮点。",
+                           "Full-screen checks: raise brightness and turn off True Tone and ambient adaptation. Circles should be round, lines straight, gradients smooth, white free of dead pixels, black free of bright ones."))
+                        .font(Typo.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: Space.md)
+                    PrimaryButton(title: T("开始全屏检查", "Start full-screen test"), icon: "play.fill",
+                                  enabled: !isPanelTestRunning) {
+                        isPanelTestRunning = true
+                        PanelTestController.shared.start {
+                            isPanelTestRunning = false
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     var body: some View {
         PageScroll {
             PageHeader(
                 title: T("显示屏", "Display"),
-                subtitle: T("面板参数、EDID 指纹与纯色检查", "Panel specs, EDID fingerprint and solid-colour test")
+                subtitle: T("面板参数、EDID 指纹与 14 项全屏屏幕检查", "Panel specs, EDID fingerprint and 14 full-screen tests")
             )
 
             Card(title: T("屏幕", "Display"), icon: "display",
@@ -110,22 +152,16 @@ struct DisplayView: View {
                 }
             }
 
-            Card(title: T("纯色检查", "Solid-colour test"), icon: "circle.lefthalf.filled") {
-                HStack(alignment: .center, spacing: Space.lg) {
-                    Text(T("全屏显示纯黑、5% / 10% 灰与三原色，用于检查漏光、暗斑、色偏和坏点。检查时请调高屏幕亮度，并关闭环境光自适应。",
-                           "Shows full-screen black, low grays and RGB primaries to inspect bleed, dark spots, tint and dead pixels. Raise brightness and disable ambient adaptation."))
-                        .font(Typo.caption)
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: Space.md)
-                    PrimaryButton(title: T("开始检查", "Start test"), icon: "play.fill",
-                                  enabled: !isPanelTestRunning) {
-                        isPanelTestRunning = true
-                        PanelTestController.shared.start {
-                            isPanelTestRunning = false
-                        }
-                    }
-                }
+            screenTestCard
+        }
+        .onAppear {
+            // 自动化核验入口：MACVERIFY_PANEL_TEST=<index> 直接进入全屏检查并停在该项
+            guard let raw = ProcessInfo.processInfo.environment["MACVERIFY_PANEL_TEST"],
+                  !isPanelTestRunning else { return }
+            let index = Int(raw) ?? 0
+            isPanelTestRunning = true
+            PanelTestController.shared.start(startIndex: index) {
+                isPanelTestRunning = false
             }
         }
     }

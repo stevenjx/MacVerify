@@ -141,14 +141,17 @@ struct OverviewFactsCard: View {
     private var regionFact: IconFact {
         let label = T("区域", "Region")
 
-        if let region = RegionCatalog.region(forPartNumber: info.partNumber) {
+        let partNumber = info.partNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let region = RegionCatalog.region(forPartNumber: partNumber) {
+            // 区域后面直接跟完整配置编号：只给 LL/A 看不出这台机器是哪一档配置
             return IconFact(icon: "globe", label: label,
-                            value: T("\(region.name)（\(region.code)/A）",
-                                     "\(region.name) (\(region.code)/A)"))
+                            value: "\(region.name) · \(partNumber)",
+                            state: .normal)
         }
-        if let suffix = RegionCatalog.unknownSuffix(forPartNumber: info.partNumber) {
+        if !partNumber.isEmpty {
             return IconFact(icon: "globe", label: label,
-                            value: T("未知（后缀 \(suffix)）", "Unknown (suffix \(suffix))"),
+                            value: T("未知 · \(partNumber)", "Unknown · \(partNumber)"),
                             state: .unavailable)
         }
         return IconFact(icon: "globe", label: label,

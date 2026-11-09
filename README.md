@@ -98,6 +98,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 - `MACVERIFY_PAGE=<overview|hardware|security|display|storage|performance|input|audio|camera|touchID|ports|battery|loadTest|power|about>`
   直接打开指定页面
 - `MACVERIFY_DUMP_REPORT=/tmp/report.md` 采集一次并导出 Markdown + JSON 后退出（用于自动化核验）
+- `MACVERIFY_PANEL_TEST=<0-13>` 直接进入全屏屏幕检查并停在第 N 项（用于自动化核验）
 
 ## 发布流程 / Release flow
 
@@ -149,6 +150,13 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 - **概览右列顺序调整**：安全状态提到系统运行状态之前
 - **Intel / Apple Silicon 的 CPU 与 GPU 显示**：Apple Silicon 写「10 核（6 性能 + 4 能效）」，
   Intel 写「4 核 8 线程」；GPU 逐块列出，Intel 机型的核显与 AMD 独显不再只剩第一块
+- **侧栏**：去掉顶部的应用图标与名字（窗口标题已经写了 MacVerify）；左下角改为
+  Infinity Computer / 开发者 StevenYang，下面一行是版本号
+- **区域补全**：区域后面直接显示完整配置编号（美国版 · Z17G000NALL/A），不再是缩写
+- **显示屏检查重做**（参照 EIZO Monitor Test）：14 项全屏测试——综合测试图、坏点（黑/白/三原色）、
+  均匀性（25/50/75% 灰）、渐变（8 / 256 级）、文字锐度、可视角度、响应时间；
+  空格或点击下一个，← → 切换，Esc 退出。gamma 与「色距」两项未做：它们靠人眼调参数，
+  验机时给不出可复核的结论
 - 版本号与发布说明未变（仍为 1.0.9），本轮不发 release
 
 ### 1.0.9 — 工程化与界面重做

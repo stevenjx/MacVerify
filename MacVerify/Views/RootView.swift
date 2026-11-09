@@ -120,23 +120,8 @@ struct RootView: View {
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 9) {
-                Image(nsImage: NSApplication.shared.applicationIconImage)
-                    .resizable()
-                    .frame(width: 26, height: 26)
-                    .cornerRadius(6)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("MacVerify").font(Typo.bodyStrong)
-                    Text(T("二手 Mac 质检", "Used Mac Inspection"))
-                        .font(Typo.caption)
-                        .foregroundColor(.secondary)
-                }
-                Spacer()
-            }
-            .padding(.horizontal, 14)
-            .padding(.top, 14)
-            .padding(.bottom, 10)
-
+            // 顶部不再放应用图标与名字：窗口标题栏已经写了 MacVerify，
+            // 这里重复一次只会把导航整体往下推。
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     ForEach(SidebarItem.groups, id: \.title) { group in
@@ -160,6 +145,16 @@ struct RootView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Divider().opacity(0.5)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Infinity Computer")
+                        .font(Typo.captionStrong)
+                        .foregroundColor(.primary)
+                    Text(T("开发者 StevenYang", "Developer StevenYang"))
+                        .font(Typo.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 14)
+
                 HStack {
                     Text("v\(BuildInfo.version) (\(BuildInfo.build))")
                         .font(Typo.mono)

@@ -286,5 +286,9 @@ struct PortTestView: View {
         }
         .onAppear { monitor.refreshDevices() }
         .onDisappear { monitor.stop() }
+        .onChange(of: monitor.insertCount) { count in
+            // 至少成功识别过一次插入，才说明「能插设备」这件事被验证过
+            if count > 0 { TestProgress.shared.markCompleted("ports") }
+        }
     }
 }

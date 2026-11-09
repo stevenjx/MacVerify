@@ -67,6 +67,18 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         }
     }
 
+    /// 只有「跑一次才知道结果」的交互测试才需要完成标记；
+    /// 概览、设备信息这类读一次就有数据的页面不显示圆圈，避免一屏全是无意义的勾。
+    var testKey: String? {
+        switch self {
+        case .audio: return "audio"
+        case .camera: return "camera"
+        case .touchID: return "touchID"
+        case .ports: return "ports"
+        default: return nil
+        }
+    }
+
     static var groups: [(title: String, items: [SidebarItem])] {
         [
             (T("检测", "INSPECTION"), [.overview, .hardware, .security, .display, .storage]),
@@ -84,6 +96,7 @@ struct RootView: View {
     @ObservedObject private var localization = Localization.shared
     @ObservedObject private var themeStore = ThemeStore.shared
     @AppStorage("macverify.guide.seen") private var guideSeen = false
+    @ObservedObject private var progress = TestProgress.shared
     @State private var showGuide = false
 
     @State private var selection: SidebarItem = {
@@ -195,6 +208,25 @@ struct RootView: View {
         .background(Color(NSColor.controlBackgroundColor))
     }
 
+    /// 已测：实心绿勾；未测：虚线圆圈。不用灰色实心圆——那和「不可用」的含义撞车。
+    @ViewBuilder
+    private func testBadge(done: Bool) -> some View {
+        if done {
+            Image(systemName: "checkmark.circle.fill")
+                .font(Typo.icon(11, weight: .semibold))
+                .foregroundColor(StatusPalette.ok)
+                .accessibilityLabel(T("已测试", "Tested"))
+        } else {
+            Circle()
+                .strokeBorder(
+                    Color.secondary.opacity(0.45),
+                    style: StrokeStyle(lineWidth: 1, dash: [2.5, 2])
+                )
+                .frame(width: 10, height: 10)
+                .accessibilityLabel(T("未测试", "Not tested"))
+        }
+    }
+
     private func sidebarRow(_ item: SidebarItem) -> some View {
         let isSelected = selection == item
         return Button(action: { selection = item }) {
@@ -206,7 +238,12 @@ struct RootView: View {
                 Text(item.title)
                     .font(isSelected ? Typo.bodyStrong : Typo.body)
                     .foregroundColor(.primary)
-                Spacer(minLength: 0)
+                    .lineLimit(1)
+                Spacer(minLength: Space.xs)
+
+                if let key = item.testKey {
+                    testBadge(done: progress.isCompleted(key))
+                }
             }
             .padding(.horizontal, Space.sm + 1)
             .padding(.vertical, 5)

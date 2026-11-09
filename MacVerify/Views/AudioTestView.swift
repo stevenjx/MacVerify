@@ -13,6 +13,8 @@ final class SpeakerTestModel: ObservableObject {
     /// 0 = 左声道, 1 = 右声道, nil = 停止
     @Published var playing: Int? = nil
     @Published var errorText: String?
+    /// 已经播过的声道。左右都播过才算这一项完成。
+    @Published var playedChannels: Set<Int> = []
 
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
@@ -39,6 +41,7 @@ final class SpeakerTestModel: ObservableObject {
         player.scheduleBuffer(buffer, at: nil, options: .loops)
         player.play()
         playing = channel
+        playedChannels.insert(channel)
         errorText = nil
     }
 
@@ -78,6 +81,8 @@ final class MicrophoneTestModel: ObservableObject {
     @Published var isRunning = false
     @Published var permissionDenied = false
     @Published var errorText: String?
+    /// 是否真的拾到过声音。电平超过 5% 才算，静音环境下的底噪不算。
+    @Published var hasSignal = false
 
     private let engine = AVAudioEngine()
 
@@ -116,6 +121,7 @@ final class MicrophoneTestModel: ObservableObject {
                 guard let self = self else { return }
                 self.level = value
                 self.peak = max(self.peak * 0.92, value)
+                if value > 0.05 { self.hasSignal = true }
             }
         }
         do {
@@ -241,6 +247,14 @@ struct AudioTestView: View {
             microphone.stop()
         }
         .onAppear { microphone.start() }
+        .onChange(of: isComplete) { done in
+            if done { TestProgress.shared.markCompleted("audio") }
+        }
+    }
+
+    /// 左右声道都播过、且麦克风真的拾到过声音 —— 两项都成立才算测完
+    private var isComplete: Bool {
+        speaker.playedChannels.count == 2 && microphone.hasSignal
     }
 
     private func channelButton(_ title: String, channel: Int, icon: String) -> some View {

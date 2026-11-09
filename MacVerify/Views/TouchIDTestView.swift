@@ -166,6 +166,7 @@ struct TouchIDTestView: View {
                 if success {
                     lastResult = .success
                     statusText = ""
+                    TestProgress.shared.markCompleted("touchID")
                 } else if let code = (error as? LAError)?.code, code == .userCancel || code == .systemCancel {
                     lastResult = .canceled
                     statusText = ""

@@ -152,5 +152,9 @@ struct CameraTestView: View {
         }
         .onAppear { model.start() }
         .onDisappear { model.stop() }
+        .onChange(of: model.isRunning) { running in
+            // 采集会话真的跑起来、分辨率也读到了，才算这台机器的摄像头可用
+            if running { TestProgress.shared.markCompleted("camera") }
+        }
     }
 }

@@ -144,10 +144,10 @@ struct OverviewFactsCard: View {
         let partNumber = info.partNumber.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if let region = RegionCatalog.region(forPartNumber: partNumber) {
-            // 代码在前、地区在后：LL/A · 美国版（英文界面 LL/A · US）
+            // 完整配置编号在前、地区在后：Z17G000NALL/A · 美国版
             return IconFact(icon: "globe", label: label,
-                            value: T("\(region.code)/A · \(region.name)",
-                                     "\(region.code)/A · \(region.abbreviation)"),
+                            value: T("\(partNumber) · \(region.name)",
+                                     "\(partNumber) · \(region.abbreviation)"),
                             state: .normal)
         }
         if !partNumber.isEmpty {

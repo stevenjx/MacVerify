@@ -79,6 +79,8 @@ final class PanelTestState: ObservableObject {
     let steps: [PanelStep]
     @Published var index = 0
     @Published var showsChrome = true
+    /// 第 14 项再往后走就进入「已完成」，不再回到第 1 项
+    @Published var isFinished = false
 
     init() {
         steps = PanelTestSuite.steps()
@@ -87,12 +89,28 @@ final class PanelTestState: ObservableObject {
     var current: PanelStep { steps[max(0, min(index, steps.count - 1))] }
 
     func next() {
-        index = (index + 1) % steps.count
+        if isFinished { return }
+        if index >= steps.count - 1 {
+            isFinished = true
+        } else {
+            index += 1
+        }
         showsChrome = true
     }
 
     func previous() {
-        index = (index - 1 + steps.count) % steps.count
+        if isFinished {
+            isFinished = false
+            index = steps.count - 1
+        } else {
+            index = (index - 1 + steps.count) % steps.count
+        }
+        showsChrome = true
+    }
+
+    func restart() {
+        index = 0
+        isFinished = false
         showsChrome = true
     }
 }
@@ -120,8 +138,12 @@ struct PanelTestOverlayView: View {
 
     var body: some View {
         ZStack {
-            PanelStepView(step: step)
-                .ignoresSafeArea()
+            if state.isFinished {
+                FinishView(onRestart: { state.restart() }, onExit: onExit)
+            } else {
+                PanelStepView(step: step)
+                    .ignoresSafeArea()
+            }
 
             VStack {
                 HStack(alignment: .center, spacing: 10) {
@@ -152,14 +174,73 @@ struct PanelTestOverlayView: View {
                     .foregroundColor(chromeColor.opacity(0.55))
                     .padding(16)
             }
-            .opacity(state.showsChrome ? 1 : 0)
+            .opacity(state.isFinished ? 0 : (state.showsChrome ? 1 : 0))
             .animation(.easeOut(duration: 0.25), value: state.showsChrome)
         }
         .contentShape(Rectangle())
-        .onTapGesture { state.next() }
+        .onTapGesture {
+            guard !state.isFinished else { return }
+            state.next()
+        }
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
                 state.showsChrome = false
+            }
+        }
+    }
+}
+
+/// 14 项走完之后的结果页：重新测一遍，或直接回到 App。
+private struct FinishView: View {
+    let onRestart: () -> Void
+    let onExit: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color(white: 0.09).ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                Image(systemName: "checkmark.circle")
+                    .font(.system(size: 54, weight: .light))
+                    .foregroundColor(Color(red: 0.29, green: 0.87, blue: 0.50))
+
+                Text(T("屏幕检查完成", "Screen test complete"))
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(.white)
+
+                Text(T("14 项全部显示完毕。如有异常，可重新测一遍；没有问题就回到概览继续。",
+                       "All 14 steps have been shown. Run them again if anything looked wrong, or go back and carry on."))
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.6))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 420)
+
+                HStack(spacing: 12) {
+                    Button(action: onRestart) {
+                        Text(T("重新测试", "Test again"))
+                            .font(.system(size: 13))
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 8)
+                            .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.12)))
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: onExit) {
+                        Text(T("已完成", "Done"))
+                            .font(.system(size: 13, weight: .medium))
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 8)
+                            .background(RoundedRectangle(cornerRadius: 7).fill(Color.accentColor))
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut(.defaultAction)
+                }
+
+                Text(T("也可按 Esc 退出", "Esc also exits"))
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.35))
             }
         }
     }
@@ -363,7 +444,12 @@ final class PanelTestController {
         let frame = screen?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
 
         let state = PanelTestState()
-        state.index = max(0, min(startIndex, state.steps.count - 1))
+        // startIndex 传 14 表示直接停在「已完成」页，便于自动化核对结果页
+        if startIndex >= state.steps.count {
+            state.isFinished = true
+        } else {
+            state.index = max(0, startIndex)
+        }
         self.state = state
 
         let window = NSWindow(contentRect: frame, styleMask: [.borderless],

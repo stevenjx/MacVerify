@@ -23,10 +23,12 @@ struct TouchStroke {
 struct TrackpadCanvas: NSViewRepresentable {
     @Binding var resetToken: Int
     var onPressure: (CGFloat) -> Void
+    var onTouch: () -> Void
 
     func makeNSView(context: Context) -> TrackpadView {
         let view = TrackpadView()
         view.onPressure = onPressure
+        view.onTouch = onTouch
         return view
     }
 
@@ -39,6 +41,7 @@ struct TrackpadCanvas: NSViewRepresentable {
 
     final class TrackpadView: NSView {
         var onPressure: ((CGFloat) -> Void)?
+        var onTouch: (() -> Void)?
         var lastResetToken = 0
         private var strokes: [TouchStroke] = []
 
@@ -47,6 +50,7 @@ struct TrackpadCanvas: NSViewRepresentable {
         override func mouseDown(with event: NSEvent) {
             let point = convert(event.locationInWindow, from: nil)
             strokes.append(TouchStroke(points: [point], pressures: [CGFloat(event.pressure)]))
+            onTouch?()
             onPressure?(CGFloat(event.pressure))
             needsDisplay = true
         }
@@ -112,6 +116,7 @@ struct InputTestView: View {
     @State private var pressure: CGFloat = 0
     @State private var resetToken = 0
     @State private var monitor: Any?
+    @State private var hasTrackpadTouch = false
 
     private let keySpacing: CGFloat = 5
 
@@ -132,6 +137,8 @@ struct InputTestView: View {
                 self.monitor = nil
             }
         }
+        .onChange(of: testedCount) { _ in markIfComplete() }
+        .onChange(of: hasTrackpadTouch) { _ in markIfComplete() }
     }
 
     // MARK: - 键盘
@@ -196,6 +203,13 @@ struct InputTestView: View {
         case 0: return Color.primary.opacity(0.05)
         case 1: return Color.accentColor.opacity(0.75)
         default: return Color.accentColor
+        }
+    }
+
+    /// 键盘每个键都按过、触控板也画过一笔，才算这一项测完
+    private func markIfComplete() {
+        if testedCount == totalCount && hasTrackpadTouch {
+            TestProgress.shared.markCompleted("input")
         }
     }
 
@@ -267,9 +281,9 @@ struct InputTestView: View {
                 }
              )) {
             VStack(alignment: .leading, spacing: Space.sm) {
-                TrackpadCanvas(resetToken: $resetToken) { value in
-                    pressure = value
-                }
+                TrackpadCanvas(resetToken: $resetToken,
+                               onPressure: { value in pressure = value },
+                               onTouch: { hasTrackpadTouch = true })
                 .frame(height: 190)
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)

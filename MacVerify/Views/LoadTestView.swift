@@ -42,6 +42,9 @@ struct LoadTestView: View {
                 level: .warning
             )
         }
+        .onChange(of: engine.currentResult != nil) { done in
+            if done { TestProgress.shared.markCompleted("loadTest") }
+        }
     }
 
     private var controlCard: some View {

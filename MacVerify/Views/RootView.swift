@@ -75,6 +75,9 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .camera: return "camera"
         case .touchID: return "touchID"
         case .ports: return "ports"
+        case .performance: return "performance"
+        case .input: return "input"
+        case .loadTest: return "loadTest"
         default: return nil
         }
     }
@@ -83,7 +86,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         [
             (T("检测", "INSPECTION"), [.overview, .hardware, .security, .display, .storage]),
             (T("测试", "TESTS"), [.performance, .input, .audio, .camera, .touchID, .ports,
-                                  .battery, .loadTest, .power]),
+                                  .loadTest, .battery, .power]),
             (T("接口", "PORTS"), [.peripherals]),
             (T("其他", "OTHER"), [.comparison, .about])
         ]

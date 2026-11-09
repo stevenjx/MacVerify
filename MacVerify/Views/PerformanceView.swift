@@ -43,6 +43,10 @@ struct PerformanceView: View {
             cpuRuns.append(CPURun(index: cpuRuns.count + 1,
                                   single: cpuBenchmark.singleCoreMops,
                                   multi: cpuBenchmark.multiCoreMops))
+            TestProgress.shared.markCompleted("performance")
+        }
+        .onChange(of: gpuBenchmark.completedBatches) { batches in
+            if batches > 0 { TestProgress.shared.markCompleted("performance") }
         }
         .onDisappear {
             gpuBenchmark.cancel()

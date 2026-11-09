@@ -3,17 +3,22 @@ name: CI
 # 三件事分开跑，任何一个失败都能直接看出是哪一类问题：
 #   verify   —— 单元测试 + 两个自检脚本（数据与文案的正确性）
 #   build    —— App 本体能否编译（SPM 测试跑不到 @main 与 SwiftUI 视图）
-#   package  —— 打 tag 时产出通用二进制与 DMG，作为构建产物留存
+#   package  —— 发布 release 时才跑：构建通用二进制与 DMG，校验后作为 release 附件上传
+#
+# 为什么 package 挂在 release 而不是 tag：DMG 只应存在于已经发布的版本上，
+# 推一个 tag 就产包会让「有包但没发布」的状态变得可能。
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
     branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # package 需要往 release 上传 dmg
+  contents: write
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -72,8 +77,8 @@ jobs:
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
 
   package:
-    name: 打包（仅 tag）
-    if: startsWith(github.ref, 'refs/tags/v')
+    name: 打包并上传到 release
+    if: github.event_name == 'release'
     needs: [verify, build]
     runs-on: macos-latest
     steps:
@@ -127,3 +132,12 @@ jobs:
           name: MacVerify-${{ steps.version.outputs.value }}-dmg
           path: dist/*.dmg
           if-no-files-found: error
+
+      # release 附件才是对外发出去的那一份，artifact 只是构建留存
+      - name: 上传到 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release upload "${GITHUB_REF_NAME}" dist/*.dmg --clobber
+          gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name'

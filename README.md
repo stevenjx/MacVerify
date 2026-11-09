@@ -95,6 +95,21 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   直接打开指定页面
 - `MACVERIFY_DUMP_REPORT=/tmp/report.md` 采集一次并导出 Markdown + JSON 后退出（用于自动化核验）
 
+## 发布流程 / Release flow
+
+规则（自 1.0.9 起）：
+
+1. 每次改动都提交并推送到 GitHub，**不发 release**。
+2. 每次改动都在本地产出一个可测试 App：`Scripts/build_local_app.sh` → `dist/local/MacVerify.app`，双击即可运行。
+3. 只有 GitHub 上创建了 release 才产出 DMG：CI 监听 `release published`，构建通用二进制、
+   校验版本号与标签一致，并把 dmg 作为附件上传到该 release。
+4. 需要一份本地留档的 dmg 时跑 `Scripts/make_dmg.sh`；脚本会先查该版本的 release 是否存在，
+   不存在就直接退出，避免出现「有包但没发布」。
+
+版本号在 `MacVerify.xcodeproj/project.pbxproj` 里两处同步：`MARKETING_VERSION`（对外版本）与
+`CURRENT_PROJECT_VERSION`（构建号）。发布前先改版本号，CI 会比对标签与 `MARKETING_VERSION`，
+不一致即失败，避免「发了新版本、包里还是旧版本」。
+
 ## 隐私 / Privacy
 
 不联网、不上传、不写入系统设置。检测数据仅保存在本机 `UserDefaults`。
@@ -121,12 +136,33 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 
 ## Changelog
 
-### 1.1.0 — 界面重做：从「单列长条」改为数据仪表盘
+### 1.0.9 — 工程化与界面重做
+本轮把「能跑」补成「可验证」，并把界面从文档式长条改成仪表盘。
+
+#### 工程化：单元测试、CI、两张自检脚本
+- **89 个单元测试**（`Tests/MacVerifyTests/`，8 个文件）：EDID 解析、电池健康度与分级、
+  一致性核验、原装性核对、机型/规格表完整性、报告指纹、报告 JSON 结构、快照与差异。
+  用例全部基于合成数据，不依赖本机硬件，CI 上可直接跑
+- **GitHub Actions**（`.github/workflows/ci.yml`）：`verify`（单元测试 + 两个自检脚本）、
+  `build`（Xcode Debug 编译）、`package`（发布 release 时构建通用二进制 + DMG 并校验，
+  成功后作为附件上传到该 release）。打包前强制比对 `MARKETING_VERSION` 与标签，
+  避免「发了新版本、包里还是旧版本」
+- **机型基线自检**（`Scripts/check_baseline.py`）：检查重复标识符、来源是否为 Apple 支持页、
+  电池额定值是否倒挂、存储匹配窗口是否重叠、外形图是否存在、分辨率与尺寸是否自相矛盾；
+  同时输出覆盖率（当前 41 个系列 / 57 个标识符 / 17 个机型暂无基线）
+- **本地化查漏**（`Scripts/check_localization.py`）：扫描漏掉 `T()` 的中文文案、
+  `T()` 缺英文参数、英文侧混入中文。扫描器能正确处理字符串插值、嵌套 `T()` 与注释
+- 修复两处真实缺陷：
+  - 报告里「循环次数」标为「不可用」却仍输出 `0`，违反「缺失即不可用」；现在读不到就输出 `null`
+  - 显示器的「内建 / 投影」是硬编码中文，英文界面下会漏出中文
+- `ScanHistoryStore` 支持注入 `UserDefaults`，并行测试不再互相清库
+
+#### 界面：从单列长条到仪表盘
 - **版式重排**：页面限宽 1020，事实改用两列 / 三列网格；键值的「标签—值」不再被推到窗口两端，
   行高从 27 收到 26。改造前每页都是单列长条，值贴着右边缘，屏幕右侧一片空白
 - **卡片头统一**：标题左对齐 + 图标 + 右侧操作，并加一条分隔线。
   改造前存储页的区块标题因为 `VStack` 默认居中，飘在卡片正中间
-- **概览页**：改为仪表盘版式——机型图 + 电池健康度 / SSD 健康度 / 电池循环三个环，
+- **概览页**：仪表盘版式——机型图 + 电池健康度 / SSD 健康度 / 电池循环三个环，
   下方左侧 12 行事实表、右侧系统运行 / 电池控制器 / 安全三张状态卡，核对明细留在页尾。
   环里的数字全部来自本机真实读数，取不到时环心显示「—」，不用 0 顶替
 - **安全页**：六项状态改为 2×3 状态块，一项一格
@@ -137,25 +173,8 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 - **被截断的说明可悬停查看全文**（概览的一致性 / 原装性行）
 - 测试目标的编译平台降到 macOS 12，与 App 一致——这样 CI 能抓到「只在 macOS 13+ 可用」的
   API（本轮真抓到了 `Text.tracking` / `.kerning`）
-- 验收：报告 JSON 与 1.0.9 逐字段一致（84 字段、指纹相同）；89 个单元测试通过；
-  13 个页面启动无崩溃；基线自检与本地化查漏通过
-
-### 1.0.9 — 工程化：单元测试、CI、两张自检脚本
-- **89 个单元测试**（`Tests/MacVerifyTests/`，8 个文件）：EDID 解析、电池健康度与分级、
-  一致性核验、原装性核对、机型/规格表完整性、报告指纹、报告 JSON 结构、快照与差异。
-  用例全部基于合成数据，不依赖本机硬件，CI 上可直接跑
-- **GitHub Actions**（`.github/workflows/ci.yml`）：`verify`（单元测试 + 两个自检脚本）、
-  `build`（Xcode Debug 编译）、`package`（打 tag 时构建通用二进制 + DMG 并校验）。
-  打 tag 会强制比对 `MARKETING_VERSION` 与 tag，避免「发了新版本、包里还是旧版本」
-- **机型基线自检**（`Scripts/check_baseline.py`）：检查重复标识符、来源是否为 Apple 支持页、
-  电池额定值是否倒挂、存储匹配窗口是否重叠、外形图是否存在、分辨率与尺寸是否自相矛盾；
-  同时输出覆盖率（当前 41 个系列 / 57 个标识符 / 17 个机型暂无基线）
-- **本地化查漏**（`Scripts/check_localization.py`）：扫描漏掉 `T()` 的中文文案、
-  `T()` 缺英文参数、英文侧混入中文。扫描器能正确处理字符串插值、嵌套 `T()` 与注释
-- 修复两处真实缺陷：
-  - 报告里「循环次数」标为「不可用」却仍输出 `0`，违反「缺失即不可用」；现在读不到就输出 `null`
-  - 显示器的「内建 / 投影」是硬编码中文，英文界面下会漏出中文
-- `ScanHistoryStore` 支持注入 `UserDefaults`，并行测试不再互相清库
+- 验收：报告 JSON 与 1.0.8 逐字段对比，276 个字段的键结构完全一致，差异只有随时间变化的
+  SSD 计数器与温度；89 个单元测试通过；13 个页面启动无崩溃；基线自检与本地化查漏通过
 
 ### 1.0.8 — 界面 P2：图表、首次引导、无障碍
 - **本轮多次测试的横向对比**：性能页在连续跑两次以上 CPU 测试后，出现条形图对比多核吞吐，

@@ -1,6 +1,6 @@
 // Views/Overview/OverviewView.swift
 //
-// 概览页只做组装：结论 → 身份 → 两类核对 → 关键检查项 → 使用强度。
+// 概览页只做组装：结论 → 机型与仪表 → 事实表 + 状态卡 → 两类核对。
 // 具体内容拆在 Overview/ 下的几个文件里，避免这个文件继续长到 400 行。
 import SwiftUI
 
@@ -25,10 +25,15 @@ struct OverviewView: View {
             )
 
             verdictCard
-            OverviewIdentityCard(info: info)
-            OverviewChecksSection(info: info, battery: battery.battery, selection: $selection)
+
+            OverviewHero(info: info, battery: battery.battery)
+
+            HStack(alignment: .top, spacing: Metrics.pageGap) {
+                OverviewFactsCard(info: info)
+                OverviewStatusCards(info: info, battery: battery.battery)
+            }
+
             OverviewAuditCards(info: info, battery: battery.battery)
-            OverviewUsageSection(info: info)
 
             NoticeBar(
                 text: T("所有数据均来自本机 IOKit、sysctl 与系统命令，不修改任何系统设置。取不到的项显示「不可用」或「无法读取」，不会用 0 或估算值代替。",

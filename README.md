@@ -8,7 +8,7 @@ When a sensor or identifier is not exposed, MacVerify says so — it never guess
 
 macOS 12 Monterey+ · Universal binary (Intel & Apple Silicon) · 中英双语 · 不联网
 
-![Overview](docs/screenshots/01-overview-zh.png)
+![Overview](docs/screenshots/v2/overview-light.png)
 
 ---
 
@@ -126,8 +126,9 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   行高从 27 收到 26。改造前每页都是单列长条，值贴着右边缘，屏幕右侧一片空白
 - **卡片头统一**：标题左对齐 + 图标 + 右侧操作，并加一条分隔线。
   改造前存储页的区块标题因为 `VStack` 默认居中，飘在卡片正中间
-- **概览页**：一致性 / 原装性改成并排两卡，8 项关键检查压成 3 列状态块，
-  从「十几行两行字」变成一屏能读完
+- **概览页**：改为仪表盘版式——机型图 + 电池健康度 / SSD 健康度 / 电池循环三个环，
+  下方左侧 12 行事实表、右侧系统运行 / 电池控制器 / 安全三张状态卡，核对明细留在页尾。
+  环里的数字全部来自本机真实读数，取不到时环心显示「—」，不用 0 顶替
 - **安全页**：六项状态改为 2×3 状态块，一项一格
 - **存储页**：磁盘与 SMART 健康并排，明细三列铺开
 - **显示屏**：尺寸、分辨率与面板参数合并为一张卡，长名称不再被截断

@@ -329,39 +329,6 @@ struct StatTile: View {
     }
 }
 
-/// 概览页的检查项：状态点 + 标题 + 结论，一行一条，可点进对应页面。
-struct CheckTile: View {
-    let title: String
-    let value: String
-    var level: BadgeLevel = .neutral
-    var badge: String? = nil
-
-    var body: some View {
-        HStack(spacing: Space.sm) {
-            StatusDot(level: level)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(Typo.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-                Text(value)
-                    .font(Typo.body)
-                    .foregroundColor(level == .neutral ? .secondary : .primary)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
-            if let badge = badge {
-                Text(badge).font(Typo.mono).foregroundColor(.secondary)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.well))
-        .contentShape(Rectangle())
-    }
-}
-
 struct RingGauge: View {
     let title: String
     let value: Double
@@ -370,6 +337,9 @@ struct RingGauge: View {
     var color: Color = .accentColor
     var caption: String? = nil
     var size: CGFloat = 96
+    /// 环心的自定义文案。用于「157 次」「—」（读数不可用）这类不适合按单位格式化的值。
+    /// 给了它就不再渲染 unit 后缀。
+    var centerText: String? = nil
 
     private var ratio: Double { total > 0 ? min(max(value / total, 0), 1) : 0 }
 
@@ -382,9 +352,13 @@ struct RingGauge: View {
                     .stroke(color, style: StrokeStyle(lineWidth: 7, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 HStack(alignment: .firstTextBaseline, spacing: 1) {
-                    Text(unit == "%" ? String(format: "%.0f", value) : String(format: "%.1f", value))
-                        .font(Typo.metric)
-                    Text(unit).font(Typo.caption).foregroundColor(.secondary)
+                    if let centerText = centerText {
+                        Text(centerText).font(Typo.metric)
+                    } else {
+                        Text(unit == "%" ? String(format: "%.0f", value) : String(format: "%.1f", value))
+                            .font(Typo.metric)
+                        Text(unit).font(Typo.caption).foregroundColor(.secondary)
+                    }
                 }
             }
             .frame(width: size, height: size)

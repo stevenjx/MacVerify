@@ -249,7 +249,13 @@ final class SystemInfoStore: ObservableObject {
             display.refreshRate = mode.refreshRate
         }
 
-        if let screen = NSScreen.main {
+        // 名称、缩放倍率、色彩配置必须来自同一块屏（CGMainDisplayID 对应的那块），
+        // 不能混用 NSScreen.main —— 接外接显示器后 NSScreen.main 可能是另一块，
+        // 会出现「名称写外接屏、分辨率写内建屏」这种自相矛盾的卡片。
+        let mainScreen = NSScreen.screens.first {
+            ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == mainID
+        } ?? NSScreen.main
+        if let screen = mainScreen {
             display.name = screen.localizedName
             display.scale = screen.backingScaleFactor
             if let space = screen.colorSpace {

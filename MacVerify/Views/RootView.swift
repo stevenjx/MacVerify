@@ -143,9 +143,11 @@ struct RootView: View {
 
             Spacer(minLength: 0)
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(spacing: Space.sm) {
                 Divider().opacity(0.5)
-                VStack(alignment: .leading, spacing: 1) {
+
+                // 开发者信息居中：它是署名，不是导航项
+                VStack(spacing: 1) {
                     Text("Infinity Computer")
                         .font(Typo.captionStrong)
                         .foregroundColor(.primary)
@@ -153,13 +155,15 @@ struct RootView: View {
                         .font(Typo.caption)
                         .foregroundColor(.secondary)
                 }
-                .padding(.horizontal, 14)
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
 
-                HStack {
-                    Text("v\(BuildInfo.version) (\(BuildInfo.build))")
+                // 版本号与「重新扫描」同一条带边框的行里：左边版本，右边动作
+                HStack(spacing: Space.sm) {
+                    Text("v\(BuildInfo.version)")
                         .font(Typo.mono)
                         .foregroundColor(.secondary)
-                    Spacer()
+                    Spacer(minLength: Space.xs)
                     Button(action: { system.refresh(); battery.refresh() }) {
                         HStack(spacing: 4) {
                             if system.isScanning {
@@ -174,7 +178,16 @@ struct RootView: View {
                     .buttonStyle(.plain)
                     .disabled(system.isScanning)
                 }
-                .padding(.horizontal, 14)
+                .padding(.horizontal, Space.sm + 2)
+                .padding(.vertical, 5)
+                .background(
+                    RoundedRectangle(cornerRadius: Radius.control, style: .continuous).fill(Surface.well)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
+                        .stroke(Surface.border, lineWidth: 1)
+                )
+                .padding(.horizontal, 12)
                 .padding(.bottom, 10)
             }
         }

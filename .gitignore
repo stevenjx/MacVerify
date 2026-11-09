@@ -32,3 +32,6 @@ __pycache__/
 
 # 开源参考项目，仅本地阅读，不入库
 MacCheck/
+
+# Mactracker 素材原始导出，只把用到的复制进 Assets
+images/

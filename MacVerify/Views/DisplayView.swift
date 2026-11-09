@@ -108,18 +108,30 @@ struct DisplayView: View {
                     }
                  )) {
                 HStack(alignment: .center, spacing: Space.xl) {
-                    RingGauge(
-                        title: T("对角线", "Diagonal"),
-                        value: display.inches,
-                        total: 20,
-                        unit: "″",
-                        color: .accentColor,
-                        size: 82
-                    )
+                    // 机型图代替原来的尺寸环；尺寸挪到右侧文字第一行
+                    ZStack {
+                        RoundedRectangle(cornerRadius: Radius.tile, style: .continuous).fill(Surface.well)
+                        if let imageName = MacModelCatalog.imageName(for: system.info.modelIdentifier) {
+                            Image(imageName)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .padding(8)
+                        } else {
+                            Image(systemName: "laptopcomputer")
+                                .font(Typo.icon(28, weight: .light))
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .frame(width: 152, height: 94)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(T("机型示意图", "Model artwork"))
 
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(display.resolutionText)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(display.inches > 0 ? display.inchText : "—")
                             .font(Typo.metric)
+                            .lineLimit(1)
+                        Text(display.resolutionText)
+                            .font(Typo.title)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
                         Text(display.refreshRate > 0

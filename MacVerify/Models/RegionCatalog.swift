@@ -10,8 +10,10 @@ import Foundation
 struct SalesRegion {
     /// 地区代码，如 "LL"。界面上显示为 LL/A
     let code: String
-    /// 地区名，如「美国版」
+    /// 中文地区名，如「美国版」
     let name: String
+    /// 英文缩写：界面上英文只写 US、HK、CH 这类短代码
+    let abbreviation: String
 }
 
 enum RegionCatalog {
@@ -32,7 +34,7 @@ enum RegionCatalog {
         if code.count >= 2 {
             let two = String(code.suffix(2))
             if twoLetterCodes.contains(two) {
-                return SalesRegion(code: two, name: name(for: two))
+                return SalesRegion(code: two, name: name(for: two), abbreviation: abbreviation(for: two))
             }
         }
 
@@ -41,7 +43,7 @@ enum RegionCatalog {
         let one = String(code.suffix(1))
         if oneLetterCodes.contains(one), code.count >= 3,
            code[code.index(code.endIndex, offsetBy: -2)].isNumber {
-            return SalesRegion(code: one, name: name(for: one))
+            return SalesRegion(code: one, name: name(for: one), abbreviation: abbreviation(for: one))
         }
         return nil
     }
@@ -58,6 +60,30 @@ enum RegionCatalog {
         guard trimmed.hasSuffix("/A") else { return nil }
         let code = String(trimmed.dropLast(2))
         return code.isEmpty ? nil : code
+    }
+
+    /// 英文界面用的两位缩写。与中文名一一对应，新增代码时两边都要补。
+    static func abbreviation(for code: String) -> String {
+        switch code {
+        case "LL": return "US"
+        case "CH": return "CN"
+        case "ZP": return "HK"
+        case "ZA": return "SG"
+        case "TH": return "TH"
+        case "KH": return "KR"
+        case "TA": return "TW"
+        case "AB": return "AE"
+        case "RS": return "RU"
+        case "GR": return "GR"
+        case "IP": return "IT"
+        case "PP": return "PH"
+        case "ZD", "D": return "DE"
+        case "B": return "GB"
+        case "C": return "CA"
+        case "J": return "JP"
+        case "X": return "AU"
+        default: return code
+        }
     }
 
     /// 地区名走本地化函数，切换语言后立即生效。

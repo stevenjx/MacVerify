@@ -10,9 +10,9 @@ struct OverviewStatusCards: View {
 
     var body: some View {
         VStack(spacing: Metrics.pageGap) {
+            card(T("安全状态", "Security"), icon: "lock.shield", rows: securityRows)
             card(T("系统运行状态", "System status"), icon: "gauge", rows: systemRows)
             card(T("电池控制器信息", "Battery controller"), icon: "battery.75", rows: batteryRows)
-            card(T("安全状态", "Security"), icon: "lock.shield", rows: securityRows)
         }
         .frame(width: 300)
     }

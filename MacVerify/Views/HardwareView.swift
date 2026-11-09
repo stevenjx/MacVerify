@@ -25,8 +25,8 @@ struct HardwareView: View {
     private var processorFacts: [Fact] {
         [
             Fact(T("核心", "Cores"), coreDescription),
-            Fact(T("内存", "Memory"), info.memoryGB > 0 ? "\(info.memoryGB) GB" : "—"),
-            Fact(T("图形处理器", "Graphics"), gpuDescription),
+            Fact(T("内存", "Memory"), info.memoryGB > 0 ? "\(info.memoryGB) GB" : "—")
+        ] + gpuFacts + [
             Fact(T("存储", "Storage"),
                  info.storage.marketingCapacity == "—"
                     ? info.storage.deviceName
@@ -71,18 +71,45 @@ struct HardwareView: View {
 
     private var coreDescription: String {
         if info.performanceCores > 0 && info.efficiencyCores > 0 {
-            return T("\(info.performanceCores) 性能核 + \(info.efficiencyCores) 能效核（共 \(info.logicalCores) 线程）",
-                     "\(info.performanceCores)P + \(info.efficiencyCores)E (\(info.logicalCores) threads)")
+            // Apple Silicon：物理核就是性能核 + 能效核，没有超线程
+            let total = info.performanceCores + info.efficiencyCores
+            return T("\(total) 核（\(info.performanceCores) 性能 + \(info.efficiencyCores) 能效）",
+                     "\(total) cores (\(info.performanceCores)P + \(info.efficiencyCores)E)")
         }
-        return T("\(info.physicalCores) 核 / \(info.logicalCores) 线程",
-                 "\(info.physicalCores) cores / \(info.logicalCores) threads")
+        if info.logicalCores > info.physicalCores {
+            // Intel 超线程：4 核 8 线程
+            return T("\(info.physicalCores) 核 \(info.logicalCores) 线程",
+                     "\(info.physicalCores) cores, \(info.logicalCores) threads")
+        }
+        return T("\(info.physicalCores) 核", "\(info.physicalCores) cores")
     }
 
-    private var gpuDescription: String {
-        if info.gpuCores > 0 {
-            return T("\(info.gpuName) · \(info.gpuCores) 核 GPU", "\(info.gpuName) · \(info.gpuCores)-core GPU")
+    /// GPU 一行一块：Intel 机型的核显和 AMD 独显都要出现，不能只显示第一块。
+    private var gpuFacts: [Fact] {
+        guard !info.gpus.isEmpty else {
+            return [Fact(T("图形处理器", "Graphics"), info.gpuName)]
         }
-        return info.gpuName
+        return info.gpus.enumerated().map { index, gpu in
+            let label: String
+            if index == 0 {
+                label = T("图形处理器", "Graphics")
+            } else {
+                label = gpu.isBuiltin ? T("集成显卡", "Integrated") : T("独立显卡", "Discrete")
+            }
+            return Fact(label, gpuText(gpu))
+        }
+    }
+
+    private func gpuText(_ gpu: GPUInfo) -> String {
+        if gpu.cores > 0 {
+            return T("\(gpu.name) · \(gpu.cores) 核", "\(gpu.name) · \(gpu.cores) cores")
+        }
+        if !gpu.bus.isEmpty {
+            return gpu.isBuiltin
+                ? T("\(gpu.name)（集成）", "\(gpu.name) (integrated)")
+                : T("\(gpu.name)（独立）", "\(gpu.name) (discrete)")
+        }
+        return gpu.name
     }
 
     private func yearFromModel(_ name: String) -> String {

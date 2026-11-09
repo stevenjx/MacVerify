@@ -10,6 +10,10 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     case storage
     case performance
     case input
+    case audio
+    case camera
+    case touchID
+    case ports
     case battery
     case loadTest
     case power
@@ -28,6 +32,10 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .storage: return T("存储", "Storage")
         case .performance: return T("性能测试", "Benchmarks")
         case .input: return T("键盘与触控板", "Input")
+        case .audio: return T("扬声器与麦克风", "Speakers & Mic")
+        case .camera: return T("摄像头", "Camera")
+        case .touchID: return "Touch ID"
+        case .ports: return T("接口测试", "Port Test")
         case .battery: return T("电池", "Battery")
         case .loadTest: return T("电池负载测试", "Load Test")
         case .power: return T("供电", "Power")
@@ -46,6 +54,10 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .storage: return "internaldrive"
         case .performance: return "speedometer"
         case .input: return "keyboard"
+        case .audio: return "speaker.wave.2"
+        case .camera: return "camera"
+        case .touchID: return "touchid"
+        case .ports: return "cable.connector"
         case .battery: return "battery.100"
         case .loadTest: return "waveform.path.ecg"
         case .power: return "powerplug"
@@ -58,7 +70,8 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     static var groups: [(title: String, items: [SidebarItem])] {
         [
             (T("检测", "INSPECTION"), [.overview, .hardware, .security, .display, .storage]),
-            (T("测试", "TESTS"), [.performance, .input, .battery, .loadTest, .power]),
+            (T("测试", "TESTS"), [.performance, .input, .audio, .camera, .touchID, .ports,
+                                  .battery, .loadTest, .power]),
             (T("接口", "PORTS"), [.peripherals]),
             (T("其他", "OTHER"), [.comparison, .about])
         ]
@@ -218,6 +231,10 @@ struct RootView: View {
         case .storage: StorageView()
         case .performance: PerformanceView()
         case .input: InputTestView()
+        case .audio: AudioTestView()
+        case .camera: CameraTestView()
+        case .touchID: TouchIDTestView()
+        case .ports: PortTestView()
         case .battery: BatteryView()
         case .loadTest: LoadTestView()
         case .power: PowerView()

@@ -97,10 +97,7 @@ struct OverviewFactsCard: View {
                      mono: true,
                      state: modelNumber.isEmpty ? .unavailable : .normal),
 
-            IconFact(icon: "barcode",
-                     label: T("机型标识", "Identifier"),
-                     value: info.modelIdentifier,
-                     mono: true),
+            regionFact,
 
             IconFact(icon: "cpu",
                      label: T("芯片平台", "Chip"),
@@ -137,6 +134,26 @@ struct OverviewFactsCard: View {
                      label: T("上次扫描", "Scanned"),
                      value: Format.dateTime(info.scannedAt))
         ]
+    }
+
+    /// 销售区域由配置编号后缀决定（Z17G000NALL/A → LL → 美版）。
+    /// 编号读不到、或后缀不在已确认的对照表里，都写「未知」，不按机型或年份推测。
+    private var regionFact: IconFact {
+        let label = T("区域", "Region")
+
+        if let region = RegionCatalog.region(forPartNumber: info.partNumber) {
+            return IconFact(icon: "globe", label: label,
+                            value: T("\(region.name)（\(region.code)/A）",
+                                     "\(region.name) (\(region.code)/A)"))
+        }
+        if let suffix = RegionCatalog.unknownSuffix(forPartNumber: info.partNumber) {
+            return IconFact(icon: "globe", label: label,
+                            value: T("未知（后缀 \(suffix)）", "Unknown (suffix \(suffix))"),
+                            state: .unavailable)
+        }
+        return IconFact(icon: "globe", label: label,
+                        value: T("配置编号不可用", "Part number unavailable"),
+                        state: .unavailable)
     }
 
     private var memoryFact: IconFact {

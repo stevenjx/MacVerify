@@ -104,6 +104,7 @@ final class SystemInfoStore: ObservableObject {
 
         data.gpuName = Self.gpuName(displayReport: displays, fallback: data.chipName)
         data.gpuCores = Self.gpuCores(displayReport: displays)
+        data.gpus = Self.gpuList(displayReport: displays)
         data.isLowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
         data.uptime = ProcessInfo.processInfo.systemUptime
         data.systemUptimeText = Self.uptimeText(data.uptime)
@@ -166,6 +167,27 @@ final class SystemInfoStore: ObservableObject {
             if let cores = entry["sppci_cores"] as? Int { return cores }
         }
         return 0
+    }
+
+    /// 逐块列出 GPU。Intel 机型会返回「核显 + 独显」两条，界面必须都显示出来。
+    private static func gpuList(displayReport: [[String: Any]]) -> [GPUInfo] {
+        displayReport.compactMap { entry in
+            let name = ((entry["sppci_model"] as? String)
+                ?? (entry["_name"] as? String) ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { return nil }
+
+            var gpu = GPUInfo()
+            gpu.name = name
+            if let raw = entry["sppci_cores"] as? String {
+                gpu.cores = Int(raw) ?? 0
+            } else if let cores = entry["sppci_cores"] as? Int {
+                gpu.cores = cores
+            }
+            gpu.bus = entry["sppci_bus"] as? String ?? ""
+            gpu.vendor = entry["spdisplays_vendor"] as? String ?? ""
+            return gpu
+        }
     }
 
     // MARK: - 序列号 / 内存

@@ -298,6 +298,18 @@ struct PeripheralsInfo {
     }
 }
 
+/// 一块图形处理器。Intel 机型会同时有核显与独显，必须分开呈现。
+struct GPUInfo {
+    var name: String = ""
+    /// 仅 Apple Silicon 提供（sppci_cores）；Intel 核显与 AMD 独显该键不存在，保持 0
+    var cores: Int = 0
+    /// system_profiler 的 sppci_bus，如 spdisplays_builtin / spdisplays_pcie
+    var bus: String = ""
+    var vendor: String = ""
+
+    var isBuiltin: Bool { bus == "spdisplays_builtin" }
+}
+
 struct MacSystemInfo {
     var modelIdentifier: String = "—"
     var modelName: String = "—"
@@ -320,6 +332,8 @@ struct MacSystemInfo {
     var gpuName: String = "—"
     /// Apple Silicon 集成 GPU 的核心数（system_profiler sppci_cores）
     var gpuCores: Int = 0
+    /// 全部图形处理器。Intel 机型常见「核显 + AMD 独显」两块，只取第一块会把独显漏掉。
+    var gpus: [GPUInfo] = []
     var isLowPowerMode = false
     var uptime: TimeInterval = 0
 

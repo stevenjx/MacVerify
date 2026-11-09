@@ -31,7 +31,7 @@ MacVerify makes the evidence behind every claim inspectable.
 
 | 模块 | 检查内容 |
 | --- | --- |
-| 概览 | 机型、芯片、内存、容量、电池健康、激活锁、FileVault、MDM、崩溃记录一站式汇总 |
+| 概览 | 机型、**销售区域**、芯片、内存、容量、电池健康、激活锁、FileVault、MDM、崩溃记录一站式汇总 |
 | 一致性核验 | 机型 / 序列号 / 芯片 / 磁盘容量 / 内建屏 / 内存各自双通路比对 |
 | 原装性核对 | 内建屏分辨率与对角线、内存与存储档位、GPU 核心数、电池容量，对照 Apple 官方技术规格（仅限已收录机型，未收录显示「无对照数据」）|
 | 设备信息 | 机型标识、营销名称、机壳型号、配置编号、序列号、核心构成、GPU 核心数、系统版本 |
@@ -40,6 +40,10 @@ MacVerify makes the evidence behind every claim inspectable.
 | 存储 | 磁盘型号、标称与物理容量、**SMART 全字段**（寿命消耗、备用块、上电时长、通电次数、异常断电、介质错误、温度、生命周期累计读写）、顺序读写实测 |
 | 性能测试 | CPU 单核/多核吞吐、Metal 计算管线持续负载（真实批次/秒）|
 | 键盘与触控板 | 逐键触发与覆盖统计、修饰键左右区分、caps lock 触发、触控板定位与压力轨迹 |
+| 扬声器与麦克风 | 左右声道各播一次 440 Hz 正弦波（单侧静音）、麦克风实时 RMS 电平与峰值 |
+| 摄像头 | 真实打开采集会话与预览，显示设备名与当前采集分辨率；不录制、不保存 |
+| Touch ID | 硬件 / 指纹录入状态 + 真正调起一次生物识别认证，取消与失败如实区分 |
+| 接口测试 | 逐口插入设备，IOKit 实时差分出接入/拔出事件与 USB 链路速率（含雷雳与外置存储）|
 | 电池 | 设计容量、满充容量、健康度（与系统设置同口径）、循环、电压电流、内阻估算（ΔV/ΔI）|
 | 电池负载测试 | 真实放电采样，给出容量一致性、电压下降（含电量分量）、温升判定并保存历史 |
 | 供电 | 适配器功率、充电状态、实时功率、剩余时间 |
@@ -91,7 +95,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 
 命令行入口：
 
-- `MACVERIFY_PAGE=<overview|hardware|security|display|storage|performance|input|battery|loadTest|power|about>`
+- `MACVERIFY_PAGE=<overview|hardware|security|display|storage|performance|input|audio|camera|touchID|ports|battery|loadTest|power|about>`
   直接打开指定页面
 - `MACVERIFY_DUMP_REPORT=/tmp/report.md` 采集一次并导出 Markdown + JSON 后退出（用于自动化核验）
 
@@ -135,6 +139,17 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   这类机型的存储容量核对标为「不做判断」，而不是猜测可换或板载。
 
 ## Changelog
+
+### 未发布 / Unreleased
+- **新增四项交互测试**（测试组）：扬声器与麦克风、摄像头、Touch ID、接口测试。
+  全部是真实采集：正弦波单声道播放、麦克风 RMS 电平、摄像头采集会话、`LAContext` 生物识别、
+  IOKit 插拔差分；没有一样是动画或占位数据
+- **概览新增「区域」**：从配置编号后缀判断销售地区（Z17G000NALL/A → 美版），
+  收录 18 个可确认的代码；认不出的后缀显示「未知（后缀 XX）」，不按机型年份猜
+- **概览右列顺序调整**：安全状态提到系统运行状态之前
+- **Intel / Apple Silicon 的 CPU 与 GPU 显示**：Apple Silicon 写「10 核（6 性能 + 4 能效）」，
+  Intel 写「4 核 8 线程」；GPU 逐块列出，Intel 机型的核显与 AMD 独显不再只剩第一块
+- 版本号与发布说明未变（仍为 1.0.9），本轮不发 release
 
 ### 1.0.9 — 工程化与界面重做
 本轮把「能跑」补成「可验证」，并把界面从文档式长条改成仪表盘。

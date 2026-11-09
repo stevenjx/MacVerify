@@ -29,3 +29,6 @@ __pycache__/
 
 # 本地截图（用户自己的 iShot 抓图，不进版本库；归档截图放 docs/screenshots）
 截图/
+
+# 开源参考项目，仅本地阅读，不入库
+MacCheck/

@@ -220,6 +220,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = MacVerify;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 StevenYang. All rights reserved.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "打开摄像头预览，用于检查画面是否清晰、有无坏点。不录制、不保存。";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "读取麦克风电平，用于检查麦克风是否正常拾音。不录音、不保存。";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -251,6 +253,8 @@
 				INFOPLIST_KEY_CFBundleDisplayName = MacVerify;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 StevenYang. All rights reserved.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "打开摄像头预览，用于检查画面是否清晰、有无坏点。不录制、不保存。";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "读取麦克风电平，用于检查麦克风是否正常拾音。不录音、不保存。";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

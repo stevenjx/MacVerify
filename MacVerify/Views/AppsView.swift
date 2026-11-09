@@ -17,12 +17,12 @@ struct AppsView: View {
     private let entries: [Entry] = [
         Entry(id: "InfiniCal",
               name: "InfiniCal",
-              tagline: T("菜单栏日历", "Menu bar calendar"),
+              tagline: T("电池校准", "Battery Management"),
               releaseURL: "https://github.com/stevenjx/InfiniCal/releases",
               assetName: "app_infinical"),
         Entry(id: "MacVerify",
               name: "MacVerify",
-              tagline: T("二手 Mac 质检", "Used Mac inspection"),
+              tagline: T("二手 Mac 质检", "Secondhand Mac inspection"),
               releaseURL: "https://github.com/stevenjx/MacVerify/releases",
               assetName: nil)
     ]

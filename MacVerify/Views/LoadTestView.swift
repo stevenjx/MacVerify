@@ -48,7 +48,10 @@ struct LoadTestView: View {
     }
 
     private var controlCard: some View {
-        Card(title: T("测试设置", "Setup"), icon: "slider.horizontal.3") {
+        Card(title: T("测试设置", "Setup"), icon: "slider.horizontal.3",
+             trailing: AnyView(
+                StatusBadge(text: engine.status, level: engine.isRunning ? .warning : .neutral)
+             )) {
             VStack(alignment: .leading, spacing: Space.sm) {
                 HStack(spacing: Space.sm) {
                     SegmentedPicker(options: [180, 600, 1200],
@@ -69,7 +72,6 @@ struct LoadTestView: View {
                 if engine.isRunning {
                     ProgressView(value: engine.progress).progressViewStyle(.linear)
                 }
-                Text(engine.status).font(Typo.caption).foregroundColor(.secondary)
             }
         }
         .onDisappear {

@@ -334,15 +334,10 @@ struct AudioTestView: View {
                                                         "Sweep 100 Hz – 16 kHz, 8 s loop"))
                 ], columns: 2, labelWidth: 72)
 
-                HStack(spacing: Space.md) {
-                    SegmentedPicker(options: PlayChannel.allCases,
-                                    title: { $0.title },
-                                    selection: $speaker.channel,
-                                    enabled: speaker.playing == nil)
-                    SecondaryButton(title: T("停止", "Stop"), icon: "stop.fill") {
-                        speaker.stop()
-                    }
-                }
+                SegmentedPicker(options: PlayChannel.allCases,
+                                title: { $0.title },
+                                selection: $speaker.channel,
+                                enabled: speaker.playing == nil)
 
                 HStack(spacing: Space.sm) {
                     PrimaryButton(title: speaker.playing == nil
@@ -351,6 +346,10 @@ struct AudioTestView: View {
                                   icon: "play.fill",
                                   enabled: speaker.playing == nil) {
                         speaker.play()
+                    }
+                    SecondaryButton(title: T("停止", "Stop"), icon: "stop.fill",
+                                    enabled: speaker.playing != nil) {
+                        speaker.stop()
                     }
                     Text(T("只有选中的声道会响；双声道时两侧同时响。",
                            "Only the selected channel sounds; Both plays them together."))

@@ -50,26 +50,31 @@ struct PowerView: View {
                 }
 
                 Card(title: T("适配器", "Adapter"), icon: "powerplug") {
-                    if let watts = battery.adapterWatts {
-                        HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            Text("\(watts)")
-                                .font(Typo.metric)
-                            Text("W").font(Typo.caption).foregroundColor(.secondary)
+                    // 与左边卡片等高时，内容贴顶——否则三行字会被拉开成一大片空隙
+                    VStack(alignment: .leading, spacing: Space.xs) {
+                        if let watts = battery.adapterWatts {
+                            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                                Text("\(watts)")
+                                    .font(Typo.metric)
+                                Text("W").font(Typo.caption).foregroundColor(.secondary)
+                            }
+                            Text(battery.adapterName ?? T("USB-C 电源适配器", "USB-C power adapter"))
+                                .font(Typo.caption)
+                                .foregroundColor(.secondary)
+                            if let manufacturer = battery.adapterManufacturer {
+                                Text(manufacturer).font(Typo.caption).foregroundColor(.secondary)
+                            }
+                        } else {
+                            Text(T("未检测到适配器", "No adapter detected"))
+                                .font(Typo.body)
+                                .foregroundColor(.secondary)
+                            Text(T("使用电池供电时无法读取适配器信息。", "Adapter details are unavailable while running on battery."))
+                                .font(Typo.caption)
+                                .foregroundColor(.secondary)
                         }
-                        Text(battery.adapterName ?? T("USB-C 电源适配器", "USB-C power adapter"))
-                            .font(Typo.caption)
-                            .foregroundColor(.secondary)
-                        if let manufacturer = battery.adapterManufacturer {
-                            Text(manufacturer).font(Typo.caption).foregroundColor(.secondary)
-                        }
-                    } else {
-                        Text(T("未检测到适配器", "No adapter detected"))
-                            .font(Typo.body)
-                            .foregroundColor(.secondary)
-                        Text(T("使用电池供电时无法读取适配器信息。", "Adapter details are unavailable while running on battery."))
-                            .font(Typo.caption)
-                            .foregroundColor(.secondary)
+                        Spacer(minLength: 0)
                     }
+                    .frame(maxHeight: .infinity, alignment: .top)
                 }
                 .frame(width: 300)
             }

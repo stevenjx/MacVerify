@@ -215,7 +215,12 @@ struct PortTestView: View {
                 )
             )
 
-            Card(title: T("当前连接的设备", "Connected now"), icon: "cable.connector") {
+            Card(title: T("当前连接的设备", "Connected now"), icon: "cable.connector",
+                 trailing: AnyView(
+                    SecondaryButton(title: T("刷新", "Refresh"), icon: "arrow.clockwise") {
+                        monitor.refreshDevices()
+                    }
+                 )) {
                 VStack(alignment: .leading, spacing: 0) {
                     if monitor.devices.isEmpty {
                         Text(T("当前没有检测到 USB / 雷雳 / 外置存储设备。",
@@ -239,21 +244,22 @@ struct PortTestView: View {
                 }
             }
 
-            HStack(spacing: Space.sm) {
-                if monitor.isMonitoring {
-                    SecondaryButton(title: T("停止监听", "Stop"), icon: "stop.fill") { monitor.stop() }
-                    SecondaryButton(title: T("清除记录", "Clear log"), icon: "trash") { monitor.clearEvents() }
-                } else {
-                    PrimaryButton(title: T("开始监听", "Start listening"), icon: "play.fill") { monitor.start() }
-                    SecondaryButton(title: T("刷新", "Refresh"), icon: "arrow.clockwise") { monitor.refreshDevices() }
-                }
-                Spacer(minLength: 0)
-                Text(T("已捕获接入 \(monitor.insertCount) 次", "\(monitor.insertCount) connections captured"))
-                    .font(Typo.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Card(title: T("插拔记录", "Plug / unplug log"), icon: "list.bullet.rectangle") {
+            Card(title: T("插拔记录", "Plug / unplug log"), icon: "list.bullet.rectangle",
+                 trailing: AnyView(
+                    HStack(spacing: Space.sm) {
+                        Text(T("已捕获 \(monitor.insertCount) 次", "\(monitor.insertCount) captured"))
+                            .font(Typo.caption)
+                            .foregroundColor(.secondary)
+                        if monitor.isMonitoring {
+                            SecondaryButton(title: T("停止监听", "Stop"), icon: "stop.fill") { monitor.stop() }
+                            SecondaryButton(title: T("清除", "Clear"), icon: "trash") { monitor.clearEvents() }
+                        } else {
+                            PrimaryButton(title: T("开始监听", "Start listening"), icon: "play.fill") {
+                                monitor.start()
+                            }
+                        }
+                    }
+                 )) {
                 VStack(alignment: .leading, spacing: 0) {
                     if monitor.events.isEmpty {
                         Text(T("开始监听后，插入或拔出设备会记录在这里。",

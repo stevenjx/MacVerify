@@ -32,7 +32,7 @@ never guessed, never interpolated, never replaced with a zero.
 | Storage | Drive model, physical capacity, full NVMe SMART (life used, spare blocks, power-on hours, unsafe shutdowns, temperature, data written), measured read/write |
 | Benchmarks | CPU single- and multi-core throughput, sustained Metal load measured in real batches per second |
 | Input | Every key lit up with coverage count, left/right modifier distinction, trackpad strokes and pressure |
-| Speakers & Mic | 100 Hz–16 kHz sweep, left / right / both channels; microphone RMS level, recording and playback |
+| Speakers & Mic | Bundled test track on loop, left / right / both channels with live system volume; microphone RMS level, recording and playback |
 | Camera | Live capture session and resolution; records `.mov` to the Desktop and plays it back in the app |
 | Touch ID | Enrols a fingerprint in the system's own order while watching the real template count, then runs one real authentication |
 | Port Test | Device inserted per port, IOKit diffed once a second for attach/detach and USB link speed |

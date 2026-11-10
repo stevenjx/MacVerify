@@ -1,9 +1,9 @@
 // Views/AudioTestView.swift
 //
-// 音频测试：扬声器扫频 + 麦克风录音回放。
-// 播放的是程序生成的对数扫频（100 Hz → 16 kHz），不是内置音乐文件：
-// 扫频覆盖整个可听频段，破音、共振、杂音在扫过对应频率时会暴露得比任何一首歌都清楚，
-// 而商业音乐涉及版权，不能随 App 分发。
+// 音频测试：扬声器播放内置音乐 + 麦克风录音回放。
+// 音乐来自 App 内置的 test.mp3，循环播放；可选择左 / 右 / 双声道（播放中切换即时生效），
+// 音量滑块直接改系统输出音量——验机时要判断的是「这台机器在正常音量下有没有破音」，
+// 只调 App 自己的增益，系统音量为 0 时照样没声音，容易误判。
 import SwiftUI
 import AVFoundation
 import AppKit
@@ -24,85 +24,173 @@ enum PlayChannel: Int, CaseIterable, Identifiable, Hashable {
         case .both: return T("双声道", "Both")
         }
     }
+
+    /// 传给 AVAudioPlayer.pan：-1 全左、+1 全右、0 居中。
+    /// 对立体声文件而言 pan 是左右平衡，因此 -1 时右声道完全不响，正是「测某一边」要的效果。
+    var pan: Float {
+        switch self {
+        case .left: return -1
+        case .right: return 1
+        case .both: return 0
+        }
+    }
 }
 
 @MainActor
 final class SpeakerTestModel: ObservableObject {
-    @Published var channel: PlayChannel = .both
-    @Published var playing: PlayChannel? = nil
+    /// 播放中切换声道即时生效：改 pan 即可，不必重新开始
+    @Published var channel: PlayChannel = .both {
+        didSet {
+            player?.pan = channel.pan
+            if playing { recordPlayed(channel) }
+        }
+    }
+    @Published private(set) var playing = false
+    @Published private(set) var elapsed: Double = 0
     @Published var errorText: String?
     /// 已经播过的声道（0 左 / 1 右）。左右都过一遍才算测完。
-    @Published var playedChannels: Set<Int> = []
+    @Published private(set) var playedChannels: Set<Int> = []
 
-    private let engine = AVAudioEngine()
-    private let player = AVAudioPlayerNode()
-    private var prepared = false
+    /// 系统输出音量 0…1
+    @Published private(set) var volume: Double = 0
+    @Published private(set) var isMuted = false
+    /// 输出设备是否提供音量控制（HDMI、部分外置 DAC 不提供）
+    @Published private(set) var canControlVolume = true
 
-    func play() {
-        guard let buffer = Self.sweep(channel: channel) else {
-            errorText = T("无法生成测试音", "Couldn't create the test tone")
+    /// 内置音乐的时长；0 表示没取到文件
+    let duration: Double
+    let trackFileName: String?
+
+    private var player: AVAudioPlayer?
+    private var ticker: Timer?
+
+    private static let resourceName = "test"
+    private static let resourceExtension = "mp3"
+
+    static var trackURL: URL? {
+        Bundle.main.url(forResource: resourceName, withExtension: resourceExtension)
+    }
+
+    init() {
+        if let url = Self.trackURL, let audio = try? AVAudioPlayer(contentsOf: url) {
+            duration = audio.duration
+            trackFileName = url.lastPathComponent
+        } else {
+            duration = 0
+            trackFileName = nil
+        }
+        refreshVolume()
+    }
+
+    // MARK: - 音量
+
+    func refreshVolume() {
+        if let value = SystemAudioVolume.current() {
+            volume = Double(value)
+            canControlVolume = true
+        } else {
+            canControlVolume = false
+        }
+        isMuted = SystemAudioVolume.isMuted() ?? false
+    }
+
+    /// 滑块直接改系统输出音量；静音状态下拖动会自动取消静音
+    func setVolume(_ value: Double) {
+        volume = min(max(value, 0), 1)
+        guard canControlVolume else { return }
+        guard SystemAudioVolume.set(Float(volume)) else {
+            canControlVolume = false
             return
         }
-        if !prepared {
-            engine.attach(player)
-            engine.connect(player, to: engine.mainMixerNode, format: buffer.format)
+        if isMuted, SystemAudioVolume.setMuted(false) {
+            isMuted = false
+        }
+    }
+
+    func toggleMute() {
+        let target = !isMuted
+        if SystemAudioVolume.setMuted(target) {
+            isMuted = target
+        }
+    }
+
+    // MARK: - 播放
+
+    func play() {
+        guard let url = Self.trackURL else {
+            errorText = T("内置测试音乐缺失（test.mp3），无法播放。",
+                          "The bundled test track (test.mp3) is missing.")
+            return
+        }
+        if player == nil {
             do {
-                try engine.start()
-                prepared = true
+                let audio = try AVAudioPlayer(contentsOf: url)
+                audio.numberOfLoops = -1      // 单曲循环，够听完两侧
+                audio.prepareToPlay()
+                player = audio
             } catch {
-                errorText = T("音频输出启动失败：\(error.localizedDescription)",
-                              "Couldn't start audio output: \(error.localizedDescription)")
+                errorText = T("无法打开测试音乐：\(error.localizedDescription)",
+                              "Couldn't open the test track: \(error.localizedDescription)")
                 return
             }
         }
-        player.stop()
-        player.scheduleBuffer(buffer, at: nil, options: .loops)
-        player.play()
-        playing = channel
+
+        // 系统静音时播放会得出「喇叭坏了」的错误结论，先取消静音
+        if SystemAudioVolume.isMuted() == true, SystemAudioVolume.setMuted(false) {
+            isMuted = false
+        }
+
+        player?.pan = channel.pan
+        player?.currentTime = 0
+        guard player?.play() == true else {
+            errorText = T("音频输出启动失败，请检查输出设备。",
+                          "Couldn't start audio output — check the output device.")
+            return
+        }
+        playing = true
+        elapsed = 0
+        recordPlayed(channel)
+        refreshVolume()
+        startTicker()
+        errorText = nil
+    }
+
+    func stop() {
+        player?.stop()
+        player?.currentTime = 0
+        playing = false
+        elapsed = 0
+        stopTicker()
+    }
+
+    func teardown() {
+        stop()
+        player = nil
+    }
+
+    private func recordPlayed(_ channel: PlayChannel) {
         switch channel {
         case .left: playedChannels.insert(0)
         case .right: playedChannels.insert(1)
         case .both: playedChannels.formUnion([0, 1])
         }
-        errorText = nil
     }
 
-    func stop() {
-        player.stop()
-        playing = nil
-    }
-
-    func teardown() {
-        stop()
-        if prepared { engine.stop() }
-    }
-
-    /// 8 秒对数扫频，两端各 20 ms 淡入淡出，避免起止爆音被误当成扬声器故障。
-    private static func sweep(channel: PlayChannel) -> AVAudioPCMBuffer? {
-        let sampleRate = 44_100.0
-        let duration = 8.0
-        let frames = AVAudioFrameCount(sampleRate * duration)
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 2),
-              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)
-        else { return nil }
-        buffer.frameLength = frames
-
-        let f0 = 100.0
-        let f1 = 16_000.0
-        let ratio = f1 / f0
-        let fade = 0.02
-
-        for frame in 0..<Int(frames) {
-            let t = Double(frame) / sampleRate
-            let phase = 2 * Double.pi * f0 * duration / log(ratio) * (pow(ratio, t / duration) - 1)
-            var amplitude = 0.28
-            if t < fade { amplitude *= t / fade }
-            if t > duration - fade { amplitude *= (duration - t) / fade }
-            let value = Float(sin(phase) * amplitude)
-            buffer.floatChannelData?[0][frame] = (channel == .right) ? 0 : value
-            buffer.floatChannelData?[1][frame] = (channel == .left) ? 0 : value
+    private func startTicker() {
+        stopTicker()
+        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self = self, let player = self.player else { return }
+                self.elapsed = player.currentTime
+            }
         }
-        return buffer
+        RunLoop.main.add(timer, forMode: .common)
+        ticker = timer
+    }
+
+    private func stopTicker() {
+        ticker?.invalidate()
+        ticker = nil
     }
 }
 
@@ -302,14 +390,14 @@ struct AudioTestView: View {
         PageScroll {
             PageHeader(
                 title: T("扬声器与麦克风", "Speakers & Microphone"),
-                subtitle: T("扫频测扬声器，录音回放测麦克风", "Sweep for the speakers, record and play back for the microphone")
+                subtitle: T("播放内置音乐测扬声器，录音回放测麦克风", "Bundled music for the speakers, record and play back for the microphone")
             )
 
             speakerCard
             microphoneCard
 
-            NoticeBar(text: T("扫频音会从 100 Hz 扫到 16 kHz：低频听有没有嗡嗡共振，高频听有没有破音和杂音。整个过程不保存任何音频到磁盘。",
-                              "The sweep runs from 100 Hz to 16 kHz: listen for rattle at the low end and crackle at the top. Nothing is written to disk."),
+            NoticeBar(text: T("音乐循环播放，可随时切换左 / 右声道确认两侧都能出声；音量滑块直接改系统输出音量。播放不写任何文件到磁盘。",
+                              "The track loops; switch left and right at any time to confirm both sides sound. The volume slider changes the system output volume. Nothing is written to disk."),
                       level: .neutral)
         }
         .onDisappear {
@@ -330,31 +418,76 @@ struct AudioTestView: View {
             VStack(alignment: .leading, spacing: Space.md) {
                 FactGrid(facts: [
                     Fact(T("输出设备", "Output"), outputName),
-                    Fact(T("测试信号", "Test signal"), T("扫频 100 Hz – 16 kHz · 8 s 循环",
-                                                        "Sweep 100 Hz – 16 kHz, 8 s loop"))
+                    Fact(T("测试音乐", "Test track"), trackText)
                 ], columns: 2, labelWidth: 72)
 
-                SegmentedPicker(options: PlayChannel.allCases,
-                                title: { $0.title },
-                                selection: $speaker.channel,
-                                enabled: speaker.playing == nil)
+                HStack(spacing: Space.sm) {
+                    rowLabel(T("声道", "Channel"))
+                    SegmentedPicker(options: PlayChannel.allCases,
+                                    title: { $0.title },
+                                    selection: $speaker.channel,
+                                    enabled: true)
+                    Spacer(minLength: 0)
+                    Text(T("播放中可随时切换", "Switch anytime while playing"))
+                        .font(Typo.caption)
+                        .foregroundColor(.secondary)
+                }
 
                 HStack(spacing: Space.sm) {
-                    PrimaryButton(title: speaker.playing == nil
-                                  ? T("播放测试音", "Play test tone")
-                                  : T("播放中…", "Playing…"),
+                    rowLabel(T("音量", "Volume"))
+                    Button(action: { speaker.toggleMute() }) {
+                        Image(systemName: speaker.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                            .font(Typo.icon(11, weight: .semibold))
+                            .foregroundColor(speaker.isMuted ? StatusPalette.warning : .secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(speaker.isMuted ? T("取消静音", "Unmute") : T("静音", "Mute"))
+
+                    Slider(value: Binding(get: { speaker.volume },
+                                          set: { speaker.setVolume($0) }),
+                           in: 0...1)
+                        .frame(width: 190)
+                        .disabled(!speaker.canControlVolume)
+
+                    Text("\(Int(speaker.volume * 100))%")
+                        .font(Typo.mono)
+                        .foregroundColor(.secondary)
+                        .frame(width: 34, alignment: .trailing)
+
+                    if speaker.isMuted {
+                        StatusBadge(text: T("已静音", "Muted"), level: .warning)
+                    }
+                    if !speaker.canControlVolume {
+                        Text(T("此输出设备不提供音量控制，请调节设备本身。",
+                               "This output has no volume control; adjust the device itself."))
+                            .font(Typo.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+
+                HStack(spacing: Space.sm) {
+                    PrimaryButton(title: speaker.playing
+                                  ? T("播放中…", "Playing…")
+                                  : T("播放音乐", "Play music"),
                                   icon: "play.fill",
-                                  enabled: speaker.playing == nil) {
+                                  enabled: !speaker.playing) {
                         speaker.play()
                     }
                     SecondaryButton(title: T("停止", "Stop"), icon: "stop.fill",
-                                    enabled: speaker.playing != nil) {
+                                    enabled: speaker.playing) {
                         speaker.stop()
+                    }
+                    if speaker.playing {
+                        Text("\(timeText(speaker.elapsed)) / \(timeText(speaker.duration))")
+                            .font(Typo.mono)
+                            .foregroundColor(.secondary)
                     }
                     Text(T("只有选中的声道会响；双声道时两侧同时响。",
                            "Only the selected channel sounds; Both plays them together."))
                         .font(Typo.caption)
                         .foregroundColor(.secondary)
+                    Spacer(minLength: 0)
                 }
 
                 if let error = speaker.errorText {
@@ -362,6 +495,21 @@ struct AudioTestView: View {
                 }
             }
         }
+    }
+
+    /// 与 FactGrid 的标签列对齐（labelWidth 72）
+    private func rowLabel(_ text: String) -> some View {
+        Text(text)
+            .font(Typo.caption)
+            .foregroundColor(.secondary)
+            .frame(width: 72, alignment: .leading)
+    }
+
+    private var trackText: String {
+        guard let name = speaker.trackFileName, speaker.duration > 0 else {
+            return T("缺失（test.mp3）", "Missing (test.mp3)")
+        }
+        return "\(name) · \(timeText(speaker.duration))"
     }
 
     // MARK: - 麦克风

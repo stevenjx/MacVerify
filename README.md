@@ -153,7 +153,7 @@ Inspection results are stored in this Mac's `UserDefaults`.
 ## Development
 
 ```bash
-swift test --disable-sandbox          # 109 unit tests
+swift test --disable-sandbox          # 114 unit tests
 python3 Scripts/check_baseline.py     # model table and spec baselines
 python3 Scripts/check_localization.py # missing-translation lint
 ```

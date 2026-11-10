@@ -222,14 +222,16 @@ final class SystemInfoStore: ObservableObject {
         display.pixelWidth = CGDisplayPixelsWide(mainID)
         display.pixelHeight = CGDisplayPixelsHigh(mainID)
 
-        // 取所有可用模式中的最大像素尺寸作为面板原生分辨率
-        // （当前模式通常是缩放后的逻辑分辨率，不能当原生值）
+        // 面板原生分辨率：优先认 kDisplayModeNativeFlag。
+        // 按面积取最大是错的——Intel 机器在「更多空间」缩放下会渲染 3360×2100 的帧缓冲，
+        // 面积比 2880×1800 的面板还大，结果就把缩放值当成了原生值。
         if let modes = CGDisplayCopyAllDisplayModes(mainID, nil) as? [CGDisplayMode] {
-            var native = (width: 0, height: 0)
-            for mode in modes where mode.pixelWidth * mode.pixelHeight > native.width * native.height {
-                native = (mode.pixelWidth, mode.pixelHeight)
+            let entries = modes.map {
+                DisplayResolution.Mode(pixelWidth: $0.pixelWidth,
+                                       pixelHeight: $0.pixelHeight,
+                                       isNative: ($0.ioFlags & DisplayResolution.nativeFlag) != 0)
             }
-            if native.width > 0 {
+            if let native = DisplayResolution.native(from: entries) {
                 display.pixelWidth = native.width
                 display.pixelHeight = native.height
             }

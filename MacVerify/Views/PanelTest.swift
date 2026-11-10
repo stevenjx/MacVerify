@@ -120,6 +120,9 @@ final class PanelTestState: ObservableObject {
 struct PanelTestOverlayView: View {
     @ObservedObject var state: PanelTestState
     let onExit: () -> Void
+    /// 进入/离开结果页时要恢复/重新隐藏鼠标指针：结果页有两个按钮要点，
+    /// 指针不见了用户只能盲点。
+    var onFinishChange: (Bool) -> Void = { _ in }
 
     private var step: PanelStep { state.current }
 
@@ -186,6 +189,9 @@ struct PanelTestOverlayView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
                 state.showsChrome = false
             }
+        }
+        .onChange(of: state.isFinished) { finished in
+            onFinishChange(finished)
         }
     }
 }
@@ -429,6 +435,8 @@ final class PanelTestController {
     private var monitor: Any?
     private var state: PanelTestState?
     private var onFinish: (() -> Void)?
+    /// NSCursor 的 hide/unhide 必须成对，这里自己记账，避免结果页与退出时重复 unhide
+    private var cursorHidden = false
 
     private init() {}
 
@@ -460,12 +468,15 @@ final class PanelTestController {
         window.hasShadow = false
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         window.setFrame(frame, display: true)
-        window.contentView = NSHostingView(rootView: PanelTestOverlayView(state: state, onExit: { [weak self] in
-            self?.stop()
-        }))
+        window.contentView = NSHostingView(rootView: PanelTestOverlayView(
+            state: state,
+            onExit: { [weak self] in self?.stop() },
+            onFinishChange: { [weak self] finished in self?.setCursorHidden(!finished) }
+        ))
 
         NSApp.presentationOptions = [.hideDock, .hideMenuBar]
-        NSCursor.hide()
+        // 直接停在结果页时（自动化用）指针一开始就要可见
+        setCursorHidden(!state.isFinished)
         // 从命令行或后台启动时 App 可能不是前台进程，不激活的话窗口建出来也不可见
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
@@ -496,13 +507,23 @@ final class PanelTestController {
         self.window = window
     }
 
+    private func setCursorHidden(_ hidden: Bool) {
+        guard hidden != cursorHidden else { return }
+        cursorHidden = hidden
+        if hidden {
+            NSCursor.hide()
+        } else {
+            NSCursor.unhide()
+        }
+    }
+
     func stop() {
         if let monitor = monitor {
             NSEvent.removeMonitor(monitor)
             self.monitor = nil
         }
         NSApp.presentationOptions = []
-        NSCursor.unhide()
+        setCursorHidden(false)
         window?.orderOut(nil)
         window = nil
         state = nil

@@ -59,7 +59,6 @@ final class SpeakerTestModel: ObservableObject {
 
     /// 内置音乐的时长；0 表示没取到文件
     let duration: Double
-    let trackFileName: String?
 
     private var player: AVAudioPlayer?
     private var ticker: Timer?
@@ -72,13 +71,9 @@ final class SpeakerTestModel: ObservableObject {
     }
 
     init() {
-        if let url = Self.trackURL, let audio = try? AVAudioPlayer(contentsOf: url) {
-            duration = audio.duration
-            trackFileName = url.lastPathComponent
-        } else {
-            duration = 0
-            trackFileName = nil
-        }
+        duration = Self.trackURL
+            .flatMap { try? AVAudioPlayer(contentsOf: $0) }
+            .map(\.duration) ?? 0
         refreshVolume()
     }
 
@@ -417,9 +412,8 @@ struct AudioTestView: View {
         Card(title: T("扬声器 / 耳机", "Speaker / Headphones"), icon: "speaker.wave.2") {
             VStack(alignment: .leading, spacing: Space.md) {
                 FactGrid(facts: [
-                    Fact(T("输出设备", "Output"), outputName),
-                    Fact(T("测试音乐", "Test track"), trackText)
-                ], columns: 2, labelWidth: 72)
+                    Fact(T("输出设备", "Output"), outputName)
+                ], columns: 1, labelWidth: 72)
 
                 HStack(spacing: Space.sm) {
                     rowLabel(T("声道", "Channel"))
@@ -503,13 +497,6 @@ struct AudioTestView: View {
             .font(Typo.caption)
             .foregroundColor(.secondary)
             .frame(width: 72, alignment: .leading)
-    }
-
-    private var trackText: String {
-        guard let name = speaker.trackFileName, speaker.duration > 0 else {
-            return T("缺失（test.mp3）", "Missing (test.mp3)")
-        }
-        return "\(name) · \(timeText(speaker.duration))"
     }
 
     // MARK: - 麦克风

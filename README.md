@@ -86,6 +86,11 @@ never guessed, never interpolated, never replaced with a zero.
 
 The app is ad-hoc signed and not notarised by Apple.
 
+The DMG is a universal binary (arm64 + x86_64) with a minimum of macOS 12, so it opens on both Intel and Apple Silicon.
+If you see **“this application is not supported on this Mac”**, the copy you have is single-architecture — that is what
+`Scripts/build_local_app.sh` produces by default, built for the machine that ran it. Download the DMG, or build with
+`--universal`.
+
 ## Updates
 
 The app asks GitHub for the latest release once per launch, at most every six hours. When a newer version exists the
@@ -117,6 +122,9 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   -destination 'generic/platform=macOS' -derivedDataPath build \
   ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
 ```
+
+A local build with `Scripts/build_local_app.sh` targets the current Mac's architecture only. Add `--universal` when the
+app has to run on another machine (for example an Intel Mac).
 
 Automation hooks used by the test suite and for verification:
 

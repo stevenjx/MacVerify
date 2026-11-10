@@ -124,6 +124,16 @@ jobs:
           mount=$(hdiutil attach -nobrowse -readonly "$dmg" | grep -o '/Volumes/.*' | tail -1)
           trap 'hdiutil detach "$mount" >/dev/null 2>&1 || true' EXIT
           lipo -info "$mount/MacVerify.app/Contents/MacOS/MacVerify"
+          # 只有 arm64 的包在 Intel Mac 上会报 "not supported on this Mac"，
+          # 而且只有拿到那台机器上才会发现——所以在这里就拦住
+          archs=$(lipo -archs "$mount/MacVerify.app/Contents/MacOS/MacVerify")
+          for arch in arm64 x86_64; do
+            case " $archs " in
+              *" $arch "*) ;;
+              *) echo "::error::DMG 缺少 $arch 分片（实际：$archs），该架构的 Mac 打不开"; exit 1 ;;
+            esac
+          done
+          echo "架构：$archs"
           /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" \
             "$mount/MacVerify.app/Contents/Info.plist"
 

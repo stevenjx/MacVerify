@@ -85,6 +85,10 @@
 
 应用为 ad-hoc 签名，未做 Apple 公证。
 
+DMG 是通用二进制（arm64 + x86_64），最低 macOS 12，Intel 与 Apple Silicon 都能打开。
+如果提示 **「this application is not supported on this Mac」**，说明手上这份是单架构包——
+`Scripts/build_local_app.sh` 默认只编译当前这台 Mac 的架构。请改用 DMG，或加 `--universal` 重新编译。
+
 ## 更新
 
 启动时向 GitHub 查一次最新版本，6 小时内不重复。有新版本时侧栏左下角的版本号变琥珀色并多出一行提示，
@@ -112,6 +116,8 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   -destination 'generic/platform=macOS' -derivedDataPath build \
   ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
 ```
+
+`Scripts/build_local_app.sh` 默认只编译本机架构；要拿到另一台机器（比如 Intel Mac）上跑，加 `--universal`。
 
 自动化入口（测试与核验用）：
 

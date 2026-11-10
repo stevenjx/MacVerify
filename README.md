@@ -1,79 +1,115 @@
 # MacVerify
 
 **Hardware inspection for used Macs — every number comes from this machine.**
-MacVerify reads what macOS exposes through IOKit, sysctl, CoreGraphics and read-only system commands, and shows a
-verdict only where the evidence supports one. When a sensor or identifier is not exposed, it says so — it never
-guesses, interpolates or substitutes a default.
 
-**二手 Mac 硬件质检工具，所有数值都来自这台机器本身。**
-数据取自 IOKit、sysctl、CoreGraphics 与只读系统命令；有凭据才下结论，没有就如实写「不可用」，
-不估算、不补值、不用 0 或 false 冒充。
+[**简体中文**](README.zh-CN.md) · macOS 12 Monterey or later · Universal binary (Intel & Apple Silicon) · English / 简体中文
 
-macOS 12 Monterey+ · Intel & Apple Silicon（通用二进制）· 中英双语 · 检测全程离线
+![MacVerify overview](docs/screenshots/en/overview.png)
 
-![Overview](docs/screenshots/v2/overview-light.png)
+MacVerify reads what macOS exposes through IOKit, sysctl, CoreGraphics and a handful of read-only system commands, then
+states a verdict only where the evidence supports one. If a sensor, a panel or an identifier is not exposed, it says so:
+never guessed, never interpolated, never replaced with a zero.
 
-## 为什么可信 / Why it holds up
+## Why it holds up
 
-| 做法 | What it means |
+| Practice | What it means |
 | --- | --- |
-| **双通路互证** | 机型、序列号、芯片、磁盘容量、内建屏、内存各读两条独立通路，不一致就报告——这是识别改机型、刷序列号的唯一可靠破绽 |
-| **缺失即不可用** | 读不到输出 `null` / 「不可用」；确实不存在（没插设备、没有电池）用另一种标记，两者绝不混为一谈 |
-| **不写死易错数据** | 机型表只收 Apple 官方标识符，不把芯片写进机型名；规格基线只覆盖已核对的官方技术规格页 |
-| **可复核** | 报告导出为 Markdown + JSON，缺失项为 `null`；同一台机器两次检测可逐字段对比 |
+| **Two independent sources** | Model, serial, chip, disk size, built-in panel and memory are each read through two separate paths. A mismatch is reported — the only reliable way to spot a re-labelled model or a rewritten serial. |
+| **Missing stays missing** | Unreadable values render as `null` / “Unavailable”; things that genuinely do not exist (no USB device, no battery) get a different marker. The two are never blended. |
+| **No hard-coded guesses** | The model table only carries Apple's own identifiers; chip names are not baked into model names. Spec baselines cover only the Apple tech-spec pages that were actually checked. |
+| **Reviewable output** | Reports export as Markdown + JSON with `null` for missing values, so two inspections of the same machine can be diffed field by field. |
 
-## 功能 / Features
+## Features
 
-| 模块 | 内容 |
+| Area | What it shows |
 | --- | --- |
-| 概览 | 机型、销售区域（配置编号后缀）、芯片、内存、容量、电池健康、激活锁、FileVault、MDM、崩溃记录 |
-| 一致性核验 | 机型 / 序列号 / 芯片 / 磁盘容量 / 内建屏 / 内存 双通路比对 |
-| 原装性核对 | 对照 Apple 技术规格：内建屏、内存与存储档位、GPU 核心数、电池容量与自洽 |
-| 设备信息 | 架构、核心构成（Intel 核心/线程、Apple Silicon 性能核 + 能效核）、全部 GPU（含 Intel 独显） |
-| 安全与合规 | 激活锁、FileVault、SIP、Gatekeeper、MDM、远程管理、内核崩溃（含 `.ips`）|
-| 显示屏 | 原生分辨率、刷新率、面板身份；14 项全屏检查（坏点 / 均匀性 / 渐变 / 锐度 / 视角 / 响应时间）|
-| 存储 | 磁盘型号、物理容量、NVMe SMART 全字段（寿命、备用块、上电时长、异常断电、温度、累计读写）、读写实测 |
-| 性能测试 | CPU 单核 / 多核吞吐、Metal 持续负载（真实批次每秒）|
-| 键盘与触控板 | 逐键点亮与覆盖统计、修饰键左右区分、触控板轨迹与压力 |
-| 电池 | 容量、健康度（与系统设置同口径）、循环、电压电流、内阻估算 |
-| 电池负载测试 | 真实放电采样：容量一致性、压降、温升，结果可留档对比 |
-| 供电 | 适配器功率、充电状态、实时功率、剩余时间 |
-| 音频 | 100 Hz–16 kHz 扫频，可单独测左 / 右 / 双声道；麦克风电平、录音与回放 |
-| 摄像头 | 实时预览、采集分辨率；录制 `.mov` 到桌面并页内回放 |
-| Touch ID | 按系统面板顺序录入一枚新指纹（App 记录 `bioutil` 模板数、实时确认写入），再真正调起一次识别 |
-| 接口测试 | 逐口插入，IOKit 实时差分出接入 / 拔出事件与 USB 链路速率 |
+| Overview | Model, sales region from the part-number suffix, chip, memory, storage, battery health, activation lock, FileVault, MDM, panic logs |
+| Consistency | Model / serial / chip / disk size / built-in panel / memory compared across two sources |
+| Originality | Checks against Apple tech specs: panel, memory and storage tiers, GPU core count, battery capacity and internal coherence |
+| Device | Architecture, core layout (Intel cores/threads, Apple Silicon performance + efficiency), every GPU including Intel's discrete chips |
+| Security | Activation lock, FileVault, SIP, Gatekeeper, MDM, remote management, kernel panics (including `.ips`) |
+| Display | Native resolution, refresh rate, panel identity, and 14 full-screen tests (defective pixels, uniformity, gradients, sharpness, viewing angle, response time) |
+| Storage | Drive model, physical capacity, full NVMe SMART (life used, spare blocks, power-on hours, unsafe shutdowns, temperature, data written), measured read/write |
+| Benchmarks | CPU single- and multi-core throughput, sustained Metal load measured in real batches per second |
+| Input | Every key lit up with coverage count, left/right modifier distinction, trackpad strokes and pressure |
+| Speakers & Mic | 100 Hz–16 kHz sweep, left / right / both channels; microphone RMS level, recording and playback |
+| Camera | Live capture session and resolution; records `.mov` to the Desktop and plays it back in the app |
+| Touch ID | Enrols a fingerprint in the system's own order while watching the real template count, then runs one real authentication |
+| Port Test | Device inserted per port, IOKit diffed once a second for attach/detach and USB link speed |
+| Battery | Capacity, health (same definition as System Settings), cycles, voltage and current, internal-resistance estimate |
+| Load Test | Real discharge sampling: capacity consistency, voltage sag, temperature rise — results kept for comparison |
+| Power | Adapter wattage, charging state, live power draw, time remaining |
+| Peripherals | Attached devices and their transport details |
+| Compare | Any two saved inspections diffed field by field |
+| My Apps | Links to the author's other releases |
 
-## 系统要求 / Requirements
+## Screenshots
 
-- macOS 12.0 Monterey 或更高;Intel 与 Apple Silicon 均可
-- 无沙盒、无后台常驻、无内核扩展、无特权 helper
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/en/hardware.png" alt="Device"><br>
+      <sub><b>Device</b> — cores, threads, every GPU, memory and storage in one place</sub></td>
+    <td width="50%"><img src="docs/screenshots/en/security.png" alt="Security"><br>
+      <sub><b>Security</b> — activation lock, FileVault, SIP, Gatekeeper, MDM, remote management</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/en/display.png" alt="Display"><br>
+      <sub><b>Display</b> — panel identity and 14 full-screen checks</sub></td>
+    <td><img src="docs/screenshots/en/storage.png" alt="Storage"><br>
+      <sub><b>Storage</b> — the full NVMe SMART set, not just “healthy”</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/en/performance.png" alt="Benchmarks"><br>
+      <sub><b>Benchmarks</b> — CPU and sustained Metal load, repeated runs compared</sub></td>
+    <td><img src="docs/screenshots/en/input.png" alt="Input"><br>
+      <sub><b>Input</b> — per-key coverage on a real keyboard map</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/en/audio.png" alt="Speakers & Mic"><br>
+      <sub><b>Speakers &amp; Mic</b> — channel sweep, level meter, record and play back</sub></td>
+    <td><img src="docs/screenshots/en/touchID.png" alt="Touch ID"><br>
+      <sub><b>Touch ID</b> — enrolment steps with live template count, then a real authentication</sub></td>
+  </tr>
+</table>
 
-## 安装 / Install
+## Requirements
 
-1. 到 [Releases](https://github.com/stevenjx/MacVerify/releases) 下载最新 `.dmg`
-2. 把 `MacVerify.app` 拖进「应用程序」
-3. 首次打开如提示"无法验证开发者"：右键点击 → 打开（或 `xattr -dr com.apple.quarantine /Applications/MacVerify.app`）
+- macOS 12.0 Monterey or later; Intel and Apple Silicon both supported
+- No sandbox, no background agent, no kernel extension, no privileged helper
 
-应用为 ad-hoc 签名，未做 Apple 公证。
+## Install
 
-**关于更新**：启动时会向 GitHub 查一次最新 release（6 小时内不重复）。有新版本时，侧栏左下角的版本号变黄并多出一行提示，
-点版本号即把该版本的官方 DMG 下载到「下载」文件夹，不自动安装、不静默替换。
+1. Download the latest `.dmg` from [Releases](https://github.com/stevenjx/MacVerify/releases)
+2. Drag `MacVerify.app` into Applications
+3. If macOS says the developer cannot be verified: right-click → Open (or
+   `xattr -dr com.apple.quarantine /Applications/MacVerify.app`)
 
-## 数据来源 / Data sources
+The app is ad-hoc signed and not notarised by Apple.
 
-`IOKit`（AppleSmartBattery、IOPlatformExpertDevice、NVMe SMART、IOMedia）、`sysctl`、`CoreGraphics`，
-以及只读命令 `system_profiler` / `diskutil` / `fdesetup` / `csrutil` / `spctl` / `profiles`。
-所有命令一律按 `-json` / `-plist` 解析，不受系统语言影响。
+## Updates
 
-## 已知限制 / Limitations
+The app asks GitHub for the latest release once per launch, at most every six hours. When a newer version exists the
+version number in the sidebar turns amber and a second line appears; clicking it downloads the official DMG into your
+Downloads folder and reveals it in Finder. Nothing is installed automatically and no existing file is overwritten.
 
-- **传感器**：Apple Silicon 多数机型不向用户态提供电池温度与 SMC 电压，显示「不可用」，不估算。
-- **SMART**：内置 SSD 可读完整 NVMe SMART；外接盘取决于桥接芯片是否转发，不转发即显示「不可用」。
-- **电池容量核对**：Apple 公布 Wh、电池只报 mAh，换算需要额定电压；本机不提供时该项不做判断。
-- **机型与规格基线**：只收 Apple 官方标识符与已核对的规格页；未收录机型显示「未收录 / 无对照数据」，不按前缀猜。
-- **激活锁**：状态由系统返回，离线时可能读不到。
+## Data sources
 
-## 从源码构建 / Build
+`IOKit` (AppleSmartBattery, IOPlatformExpertDevice, NVMe SMART, IOMedia), `sysctl`, `CoreGraphics`, and the read-only
+commands `system_profiler` / `diskutil` / `fdesetup` / `csrutil` / `spctl` / `profiles` / `bioutil`.
+Every command is parsed as `-json` / `-plist`, so the system language never changes the result.
+
+## Known limitations
+
+- **Sensors** — most Apple Silicon Macs do not expose battery temperature or SMC voltages to user space. Shown as
+  unavailable rather than estimated.
+- **SMART** — internal SSDs report the full NVMe set; external drives depend on whether the bridge chip forwards it.
+- **Battery capacity cross-check** — Apple publishes Wh while the battery reports mAh; the conversion needs the rated
+  voltage, and when the machine does not provide it no verdict is given.
+- **Model and spec baselines** — only Apple identifiers and checked spec pages are included; anything else reads
+  “not in the table” rather than a guess.
+- **Activation lock** — state comes from the system and may be unreadable while offline.
+
+## Build from source
 
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
@@ -82,34 +118,37 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
 ```
 
-自动化入口：
+Automation hooks used by the test suite and for verification:
 
-- `MACVERIFY_PAGE=<overview|display|audio|camera|touchID|ports|…>` 直接打开指定页面
-- `MACVERIFY_DUMP_REPORT=/tmp/report.md` 采集一次并导出 Markdown + JSON 后退出
-- `MACVERIFY_PANEL_TEST=<0-13>` 进入全屏屏幕检查并停在第 N 项（14 = 完成页）
+- `MACVERIFY_PAGE=<overview|hardware|security|display|storage|performance|input|audio|camera|touchID|ports|loadTest|battery|power|peripherals|apps|comparison|about>`
+  opens a page directly
+- `MACVERIFY_DUMP_REPORT=/tmp/report.md` collects one inspection, writes Markdown + JSON, then exits
+- `MACVERIFY_PANEL_TEST=<0-13>` jumps into the full-screen display test and stops on step N (`14` = completion page)
 
-## 发布流程 / Release flow
+## Release flow
 
-1. 改动提交并推送，**不发 release**
-2. 本地可测试 App：`Scripts/build_local_app.sh` → `dist/local/MacVerify.app`
-3. 只有 GitHub 上创建了 release 才产出 DMG：CI 监听 `release published`，构建通用二进制、
-   校验版本号与标签一致后上传为该 release 的附件
-4. 本地留档：`Scripts/make_dmg.sh`（该版本未发布时直接退出）
+1. Changes are committed and pushed; **no release is created at this point**
+2. A testable app is built locally: `Scripts/build_local_app.sh` → `dist/local/MacVerify.app`
+3. A DMG is produced only once a GitHub release exists: CI listens for `release: published`, builds the universal
+   binary, verifies tag and version agree, and uploads the DMG as an asset of that release
+4. Local archive: `Scripts/make_dmg.sh` (exits early if the version has not been released)
 
-版本号在 `project.pbxproj` 两处同步：`MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`。
+The version lives in two places in `project.pbxproj`: `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION`.
 
-## 隐私 / Privacy
+## Privacy
 
-检测全程离线，不上传任何本机数据，不写入系统设置。唯一的外连是启动时向 GitHub 查有没有新版本：只读公开的
-release 元数据，不携带序列号、机型等任何本机信息。录音与录像只在本机：录音写临时目录、退出即清理；录像只在点击
-录制时写入桌面。检测数据仅保存在本机 `UserDefaults`。
+Inspection runs entirely offline and never uploads anything about the machine; no system setting is modified. The only
+outbound request is the release check, which reads public metadata and sends no identifiers. Recordings stay local:
+audio goes to a temporary directory and is deleted on exit; video is written to the Desktop only when you press record.
+Inspection results are stored in this Mac's `UserDefaults`.
 
-## 开发与测试 / Development
+## Development
 
 ```bash
-swift test --disable-sandbox          # 104 个单元测试
-python3 Scripts/check_baseline.py     # 机型表与规格基线自检
-python3 Scripts/check_localization.py # 中英文案查漏
+swift test --disable-sandbox          # 109 unit tests
+python3 Scripts/check_baseline.py     # model table and spec baselines
+python3 Scripts/check_localization.py # missing-translation lint
 ```
 
-开发规划见 [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)，界面改造记录见 [docs/UI_PLAN.md](docs/UI_PLAN.md)。
+Planning notes live in [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md); the UI rework is recorded in
+[docs/UI_PLAN.md](docs/UI_PLAN.md).

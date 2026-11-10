@@ -62,9 +62,17 @@ final class UpdateChecker: ObservableObject {
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             request.timeoutInterval = 15
             let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                throw UpdateError.message(T("服务器返回 \((response as? HTTPURLResponse)?.statusCode ?? 0)",
-                                           "the server returned \((response as? HTTPURLResponse)?.statusCode ?? 0)"))
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            switch code {
+            case 200:
+                break
+            case 401, 403, 404:
+                // 私有仓库与「还没有 release」在匿名请求下都是 404，分不开也不必分：
+                // 两种情况都不是用户在这台机器上能修的
+                throw UpdateError.message(T("仓库未公开或还没有 release（HTTP \(code)）",
+                                            "the repository is private or has no release (HTTP \(code))"))
+            default:
+                throw UpdateError.message(T("服务器返回 \(code)", "the server returned \(code)"))
             }
             UserDefaults.standard.set(Date(), forKey: Self.lastCheckKey)
 

@@ -176,11 +176,6 @@ struct BatterySnapshot {
         rawMaxCapacity > 0 ? rawMaxCapacity : nominalCapacity
     }
 
-    var cycleProgress: Double {
-        guard designCycleCount > 0 else { return 0 }
-        return min(1, Double(cycleCount) / Double(designCycleCount))
-    }
-
     /// 健康度分级。全 App 唯一口径，避免各页面用 85/80/90 等不同阈值导致自相矛盾。
     /// 80% 是 Apple 对「建议检修」的官方界限。
     var healthGrade: HealthGrade {
@@ -348,16 +343,13 @@ struct MacSystemInfo {
     var gatekeeperEnabled: Bool? = nil
     var mdmEnrolled: Bool? = nil
     var remoteManagement: Bool? = nil
-    var secureBootInfo: String? = nil
     var panicLogCount: Int = 0
     /// 崩溃日志目录是否可读。不可读时必须显示"无法读取"，不能显示"无记录"。
     var panicScanAvailable: Bool = false
     var lastPanicDate: Date? = nil
-    var isRefurbished: Bool? = nil
 
     var display = DisplayInfo()
     var storage = StorageInfo()
-    var assetTag: String = ""
     var peripherals = PeripheralsInfo()
 
     // MARK: - 冗余数据源（用于一致性核验）
@@ -380,16 +372,5 @@ struct MacSystemInfo {
 extension MacSystemInfo {
     var modelDisplayName: String {
         marketingName.isEmpty ? modelName : marketingName
-    }
-
-    var chipDescription: String {
-        var parts: [String] = [chipName]
-        if performanceCores > 0 && efficiencyCores > 0 {
-            parts.append(T("\(performanceCores) 性能核 + \(efficiencyCores) 能效核",
-                           "\(performanceCores)P + \(efficiencyCores)E cores"))
-        } else if physicalCores > 0 {
-            parts.append(T("\(physicalCores) 核", "\(physicalCores) cores"))
-        }
-        return parts.joined(separator: " · ")
     }
 }

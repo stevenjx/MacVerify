@@ -57,13 +57,6 @@ enum Sysctl {
         guard sysctlbyname(name, &value, &size, nil, 0) == 0 else { return nil }
         return Int(value)
     }
-
-    static func int32(_ name: String) -> Int32? {
-        var value: Int32 = 0
-        var size = MemoryLayout<Int32>.size
-        guard sysctlbyname(name, &value, &size, nil, 0) == 0 else { return nil }
-        return value
-    }
 }
 
 enum Shell {

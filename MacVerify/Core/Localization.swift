@@ -49,10 +49,6 @@ public final class Localization: ObservableObject {
     public var locale: Locale {
         Locale(identifier: isChinese ? "zh_Hans_CN" : "en_US")
     }
-
-    public var localeIdentifier: String {
-        isChinese ? "zh-Hans" : "en"
-    }
 }
 
 /// 双语字符串。所有界面文案统一走这里，避免遗漏 key。

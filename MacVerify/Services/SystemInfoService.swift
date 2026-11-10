@@ -614,34 +614,6 @@ final class SystemInfoStore: ObservableObject {
         }
         return name
     }
-
-    private static func rootDiskName() -> String {
-        let bsd = rootDiskBSDName()
-        guard !bsd.isEmpty else { return "—" }
-        let media = IOServiceGetMatchingService(0, IOBSDNameMatching(0, 0, bsd))
-        guard media != 0 else { return bsd }
-        defer { IOObjectRelease(media) }
-
-        var current = media
-        var owned = false
-        for _ in 0..<6 {
-            if let name = IOKit.property(current, "Product Name") as? String, !name.isEmpty {
-                if owned { IOObjectRelease(current) }
-                return name
-            }
-            var parent: io_object_t = 0
-            guard IORegistryEntryGetParentEntry(current, kIOServicePlane, &parent) == KERN_SUCCESS, parent != 0 else {
-                if owned { IOObjectRelease(current) }
-                break
-            }
-            if owned { IOObjectRelease(current) }
-            current = parent
-            owned = true
-        }
-        if owned { IOObjectRelease(current) }
-        return bsd
-    }
-
     // MARK: - 安全状态
 
     /// 激活锁状态来自 SPHardwareDataType 的稳定 token：

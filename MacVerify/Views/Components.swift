@@ -558,8 +558,6 @@ enum Format {
         return formatter.string(fromByteCount: Int64(value))
     }
 
-    static func gb(_ value: Int) -> String { "\(value) GB" }
-
     /// 大整数计数（如写入命令数），按本地化千分位
     static func count(_ value: UInt64) -> String {
         let formatter = NumberFormatter()
@@ -579,14 +577,6 @@ enum Format {
         formatter.locale = Localization.shared.locale
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-
-    static func dateOnly(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Localization.shared.locale
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
         return formatter.string(from: date)
     }
 }

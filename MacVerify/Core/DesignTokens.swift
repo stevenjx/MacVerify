@@ -47,7 +47,6 @@ enum Space {
     static let md: CGFloat = 10
     static let lg: CGFloat = 14
     static let xl: CGFloat = 20
-    static let xxl: CGFloat = 28
 }
 
 enum Radius {
@@ -126,8 +125,6 @@ enum Surface {
             return isDark ? NSColor.white.withAlphaComponent(0.07) : NSColor.black.withAlphaComponent(0.06)
         })
     }
-
-    static let dividerOpacity: Double = 0.5
 }
 
 // MARK: - 业务状态 → 视觉状态的唯一映射

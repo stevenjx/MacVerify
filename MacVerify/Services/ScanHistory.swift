@@ -179,11 +179,6 @@ extension ScanSnapshot {
         return snapshot
     }
 }
-
-extension String {
-    func ifEmpty(_ fallback: String) -> String { isEmpty ? fallback : self }
-}
-
 // MARK: - 差异
 
 struct DiffRow: Identifiable {

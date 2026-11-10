@@ -37,10 +37,9 @@ final class RegionCatalogTests: XCTestCase {
         XCTAssertEqual(RegionCatalog.region(forPartNumber: " z17g000nall/a ")?.code, "LL")
     }
 
-    func testUnknownCodeReturnsNilAndKeepsSuffixForDisplay() {
+    func testUnknownCodeReturnsNil() {
         // DN 不在已确认的对照表里：宁可显示未知，也不写成「德国」
         XCTAssertNil(RegionCatalog.region(forPartNumber: "MXVV2DN/A"))
-        XCTAssertEqual(RegionCatalog.unknownSuffix(forPartNumber: "MXVV2DN/A"), "DN")
     }
 
     func testMalformedInputReturnsNil() {
@@ -50,6 +49,5 @@ final class RegionCatalogTests: XCTestCase {
         // Apple 文档里的占位符（xx 为通配）不能当成澳版
         XCTAssertNil(RegionCatalog.region(forPartNumber: "MQRJ3xx/A"))
         XCTAssertNil(RegionCatalog.region(forPartNumber: "MQRJ3XX/A"))
-        XCTAssertNil(RegionCatalog.unknownSuffix(forPartNumber: "A2779"))
     }
 }

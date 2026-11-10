@@ -47,13 +47,6 @@ enum RegionCatalog {
         }
         return nil
     }
-
-    /// 未收录时返回后缀，供界面提示「未知（后缀 DN）」
-    static func unknownSuffix(forPartNumber partNumber: String) -> String? {
-        guard let code = codeSegment(partNumber) else { return nil }
-        return String(code.suffix(2))
-    }
-
     /// 去掉结尾的 "/A" 得到代码段；不是 Apple 配置编号的格式就返回 nil。
     private static func codeSegment(_ partNumber: String) -> String? {
         let trimmed = partNumber.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()

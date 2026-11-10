@@ -168,10 +168,4 @@ final class GPUBenchmark: ObservableObject {
             self.message = reason
         }
     }
-
-    var summary: String {
-        guard completedBatches > 0 else { return T("暂无数据", "No data") }
-        return T("共完成 \(completedBatches) 次计算批次，峰值 \(Int(peakFramesPerSecond)) 批次/秒",
-                 "\(completedBatches) batches completed, peak \(Int(peakFramesPerSecond)) batches/s")
-    }
 }

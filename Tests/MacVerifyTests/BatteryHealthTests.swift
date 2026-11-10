@@ -62,16 +62,4 @@ final class BatteryHealthTests: XCTestCase {
         }
     }
 
-    func testCycleProgressIsCapped() {
-        var battery = makeBattery()
-        battery.designCycleCount = 1000
-        battery.cycleCount = 250
-        XCTAssertEqual(battery.cycleProgress, 0.25, accuracy: 0.001)
-
-        battery.cycleCount = 1500
-        XCTAssertEqual(battery.cycleProgress, 1.0, accuracy: 0.001)
-
-        battery.designCycleCount = 0
-        XCTAssertEqual(battery.cycleProgress, 0)
-    }
 }

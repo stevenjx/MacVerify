@@ -145,7 +145,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 ## 开发与测试
 
 ```bash
-swift test --disable-sandbox          # 114 个单元测试
+swift test --disable-sandbox          # 116 个单元测试
 python3 Scripts/check_baseline.py     # 机型表与规格基线自检
 python3 Scripts/check_localization.py # 中英文案查漏
 ```

@@ -1,14 +1,14 @@
 // Views/TouchIDTestView.swift
 //
-// Touch ID：不只是「传感器能不能认指纹」，而是把整条录入链路走一遍。
+// Touch ID：把「录入一枚新指纹」的完整过程放在这个页面里走一遍。
 //
-// 录入本身只能由系统完成（macOS 要求管理员在「系统设置」里按指纹），
-// App 能如实做的是四件事，顺序也正是用户实际遇到的顺序：
-//   1. 有没有传感器（本机 Touch ID / 妙控键盘 Touch ID / Face ID）
-//   2. 系统准备（有没有登录密码、生物识别是否被锁定）
-//   3. 指纹是否已录入（没有就引导去系统设置，回来后自动复查）
-//   4. 真正调一次认证，确认认得出
-// 只有第 4 步成功才算这一项通过——前面三步成立但验证失败，仍然是失败。
+// 有一条不能含糊的技术边界：指纹模板只能由系统写入，macOS 没有给第三方 App
+// 提供任何录入接口（LocalAuthentication 里只有「校验」，没有「录入」）。
+// 所以真正按手指的那一步发生在系统面板里，本页做的是把它变成可验证的过程：
+//   - 按系统面板的顺序，把同样的五步摆在这里；
+//   - 进面板前记下 `bioutil -c` 的模板数，录入期间每秒复查；
+//   - 数量 +1 才算「这枚真的录进去了」，之后才允许进入验证。
+// 没有动画式的假进度：没录进去就是没录进去。
 import SwiftUI
 import LocalAuthentication
 import AppKit
@@ -34,24 +34,21 @@ final class TouchIDModel: ObservableObject {
         case none, success, failed, canceled, lockedOut
     }
 
-    struct Step: Identifiable {
-        let id: String
-        let index: Int
-        let title: String
-        let detail: String
-        let status: Status
-
-        enum Status {
-            case pending, active, passed, failed, unavailable
-        }
-    }
-
     @Published private(set) var sensor: Sensor = .none
     @Published private(set) var phase: Phase = .unknown
     @Published private(set) var isVerifying = false
     @Published private(set) var verifyResult: VerifyResult = .none
     @Published private(set) var attempts = 0
     @Published private(set) var message: String?
+
+    /// 系统里当前有几枚指纹模板（bioutil -c）
+    @Published private(set) var templateCount: Int?
+    /// 本次录入开始前的数量。用来判断「这一枚是刚录进去的」
+    @Published private(set) var baseline: Int?
+    @Published private(set) var isWatching = false
+    @Published private(set) var didEnroll = false
+
+    private var watchTimer: Timer?
 
     // MARK: - 检测
 
@@ -84,6 +81,7 @@ final class TouchIDModel: ObservableObject {
             phase = canDevice ? .notEnrolled : .unavailable
         }
 
+        if !isWatching { templateCount = BiometricTemplates.count() }
     }
 
     private static func sensor(from type: LABiometryType) -> Sensor {
@@ -97,35 +95,7 @@ final class TouchIDModel: ObservableObject {
         }
     }
 
-    // MARK: - 步骤
-
-    var steps: [Step] {
-        [
-            Step(id: "hardware", index: 1,
-                 title: T("传感器", "Sensor"),
-                 detail: sensorDetail,
-                 status: sensor == .none ? .failed : .passed),
-
-            Step(id: "system", index: 2,
-                 title: T("系统准备", "System readiness"),
-                 detail: systemDetail,
-                 status: systemStatus),
-
-            Step(id: "enrollment", index: 3,
-                 title: T("指纹录入", "Fingerprint enrolled"),
-                 detail: enrollmentDetail,
-                 status: enrollmentStatus),
-
-            Step(id: "verify", index: 4,
-                 title: T("指纹验证", "Verification"),
-                 detail: verifyDetail,
-                 status: verifyStatus)
-        ]
-    }
-
-    var isComplete: Bool {
-        sensor != .none && phase == .ready && verifyResult == .success
-    }
+    // MARK: - 展示用文字
 
     var hardwareText: String {
         switch sensor {
@@ -136,102 +106,63 @@ final class TouchIDModel: ObservableObject {
         }
     }
 
-    var enrollmentText: String {
-        switch phase {
-        case .ready: return T("已录入", "Enrolled")
-        case .notEnrolled: return T("未录入", "None")
-        case .noPasscode, .lockedOut: return T("暂不可用", "Unavailable")
-        case .unavailable: return T("不可用", "Unavailable")
-        case .unknown: return "—"
+    var templateText: String {
+        switch templateCount {
+        case .some(let count): return T("\(count) 枚", "\(count)")
+        case .none: return T("读不到", "Unavailable")
         }
     }
 
-    private var sensorDetail: String {
-        switch sensor {
-        case .touchID:
-            return T("检测到 Touch ID（内置键盘或妙控键盘）。", "Touch ID detected (built-in or Magic Keyboard).")
-        case .faceID:
-            return T("检测到 Face ID。", "Face ID detected.")
-        case .opticID:
-            return T("检测到 Optic ID。", "Optic ID detected.")
-        case .none:
-            return T("这台 Mac 没有可用的生物识别传感器，后面三步无从进行。",
-                     "No biometric sensor is available on this Mac, so the remaining steps cannot run.")
+    var enrollmentBadge: (text: String, level: BadgeLevel) {
+        if sensor == .none { return (T("不可用", "Unavailable"), .neutral) }
+        if isWatching { return (T("录入中", "Enrolling"), .warning) }
+        if didEnroll { return (T("已录入", "Enrolled"), .ok) }
+        switch phase {
+        case .ready: return (T("已录入", "Enrolled"), .ok)
+        case .notEnrolled: return (T("未录入", "Not enrolled"), .warning)
+        case .lockedOut: return (T("已锁定", "Locked out"), .critical)
+        case .noPasscode: return (T("缺登录密码", "No password"), .critical)
+        case .unavailable, .unknown: return (T("不可用", "Unavailable"), .neutral)
         }
     }
 
-    private var systemStatus: Step.Status {
-        switch phase {
-        case .unknown: return .pending
-        case .noPasscode: return .failed
-        case .lockedOut: return .active
-        case .unavailable: return sensor == .none ? .pending : .failed
-        default: return .passed
-        }
+    /// 录入面板里的五个步骤，与系统面板的顺序一致
+    var enrollmentSteps: [String] {
+        [
+            T("打开「系统设置 › Touch ID 与密码」，点「添加指纹」。",
+              "Open System Settings › Touch ID & Password and click Add Fingerprint."),
+            T("输入登录密码——这一步由系统校验，App 无法代劳。",
+              "Enter the login password. Only the system can check it."),
+            T("把手指放在传感器上，保持不动，直到系统提示抬起。",
+              "Rest your finger on the sensor and hold still until it asks you to lift."),
+            T("抬起后再次放上，重复到系统提示完成（通常 8 次左右）。",
+              "Lift and place again; repeat about eight times until the system says it is done."),
+            T("按提示调整手指角度，再补录指尖与边缘，然后命名这枚指纹。",
+              "Adjust the angle as prompted to capture the fingertip and edges, then name it.")
+        ]
     }
 
-    private var systemDetail: String {
-        switch phase {
-        case .unknown:
-            return T("正在读取系统状态…", "Reading system state…")
-        case .noPasscode:
-            return T("没有登录密码，生物识别无法启用。请先在「系统设置 › Touch ID 与密码」设置密码。",
-                     "No login password is set, so biometrics cannot be enabled. Set one in System Settings › Touch ID & Password.")
-        case .lockedOut:
-            return T("生物识别因连续失败被锁定。用登录密码解锁一次即可恢复。",
-                     "Biometrics are locked after repeated failures. Unlock once with the login password.")
-        case .unavailable:
-            return T("系统未提供生物识别能力。", "The system does not offer biometric authentication.")
+    /// 录入过程中的实时状态。基线未知时只说数量，不编造进度。
+    var liveText: String? {
+        guard isWatching else { return nil }
+        switch (baseline, templateCount) {
+        case let (base?, current?):
+            return T("等待系统写入… 已录入 \(current) 枚（开始时 \(base) 枚）",
+                     "Waiting for the system to write… \(current) enrolled (started at \(base))")
+        case let (_, current?):
+            return T("等待系统写入… 已录入 \(current) 枚", "Waiting for the system to write… \(current) enrolled")
         default:
-            return T("登录密码已设置，生物识别可被系统调起。",
-                     "A login password is set and biometrics can be invoked.")
+            return T("等待系统写入…", "Waiting for the system to write…")
         }
     }
 
-    private var enrollmentStatus: Step.Status {
-        switch phase {
-        case .ready: return .passed
-        case .notEnrolled: return .active
-        case .lockedOut, .noPasscode, .unavailable, .unknown: return .pending
-        }
-    }
-
-    private var enrollmentDetail: String {
-        switch phase {
-        case .ready:
-            return attempts > 0
-                ? T("已录入并可验证（本次已验证 \(attempts) 次）", "Enrolled and verified (\(attempts) attempt(s) this session)")
-                : T("系统里已有可用的指纹。", "A usable fingerprint is already enrolled.")
-        case .notEnrolled:
-            return T("系统里还没有指纹。录入只能由系统完成：点「打开 Touch ID 设置」按提示添加，回到本页会自动复查。",
-                     "No fingerprint is enrolled yet. Only the system can enrol: open Touch ID settings, add one, and this page re-checks when you come back.")
-        case .noPasscode:
-            return T("先设置登录密码，才能录入指纹。", "Set a login password before enrolling a fingerprint.")
-        case .lockedOut:
-            return T("解锁后再确认录入状态。", "Unlock first, then re-check enrollment.")
-        case .unavailable:
-            return T("没有传感器，无法录入。", "Without a sensor there is nothing to enroll.")
-        case .unknown:
-            return "—"
-        }
-    }
-
-    private var verifyStatus: Step.Status {
-        if phase != .ready { return .pending }
-        switch verifyResult {
-        case .success: return .passed
-        case .failed, .lockedOut: return .failed
-        case .canceled, .none: return .active
-        }
-    }
-
-    private var verifyDetail: String {
+    var verifyDetail: String {
         if phase != .ready {
             return T("录入完成后才能验证。", "Verification becomes available once a fingerprint is enrolled.")
         }
         switch verifyResult {
         case .success:
-            return T("指纹识别成功，传感器与录入都正常。", "Fingerprint recognized — sensor and enrollment both work.")
+            return T("指纹识别成功，录入与传感器都正常。", "Fingerprint recognized — enrollment and sensor both work.")
         case .failed:
             return T("指纹未被识别。可再试一次；连续失败请检查传感器表面。",
                      "Fingerprint not recognized. Try again; if it keeps failing, check the sensor surface.")
@@ -245,7 +176,55 @@ final class TouchIDModel: ObservableObject {
         }
     }
 
-    // MARK: - 动作
+    // MARK: - 录入向导
+
+    /// 记下当前模板数，打开系统录入面板，然后每秒复查一次数量
+    func beginEnrollment() {
+        baseline = BiometricTemplates.count()
+        templateCount = baseline
+        didEnroll = false
+        message = nil
+        isWatching = true
+        openEnrollmentSettings()
+        startWatching()
+    }
+
+    func stopWatching() {
+        watchTimer?.invalidate()
+        watchTimer = nil
+        isWatching = false
+    }
+
+    private func startWatching() {
+        watchTimer?.invalidate()
+        let timer = Timer(timeInterval: 1.2, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.tick() }
+        }
+        // 系统面板可能让主 RunLoop 进入 modal 模式，必须挂 common 才会继续跑
+        RunLoop.main.add(timer, forMode: .common)
+        watchTimer = timer
+    }
+
+    private func tick() {
+        guard isWatching else { return }
+        let current = BiometricTemplates.count()
+        templateCount = current
+        guard let base = baseline, let current = current, current != base else { return }
+
+        stopWatching()
+        if current > base {
+            didEnroll = true
+            message = T("检测到新指纹：模板数 \(base) → \(current)，系统已写入。",
+                        "New fingerprint detected: templates \(base) → \(current), written by the system.")
+        } else {
+            didEnroll = false
+            message = T("检测到指纹数量减少：模板数 \(base) → \(current)。",
+                        "Fewer fingerprints than before: templates \(base) → \(current).")
+        }
+        refresh()
+    }
+
+    // MARK: - 验证
 
     func verify() {
         guard !isVerifying, phase == .ready else { return }
@@ -295,7 +274,7 @@ final class TouchIDModel: ObservableObject {
             Task { @MainActor in
                 self.isVerifying = false
                 if success {
-                    self.message = T("已解锁，可以继续验证。", "Unlocked — you can verify now.")
+                    self.message = T("已解锁，可以继续录入或验证。", "Unlocked — you can enroll or verify now.")
                 } else if let error = error {
                     self.message = error.localizedDescription
                 }
@@ -325,193 +304,183 @@ struct TouchIDTestView: View {
         PageScroll {
             PageHeader(
                 title: "Touch ID",
-                subtitle: T("完整走一遍：传感器 → 系统准备 → 指纹录入 → 验证",
-                            "Full path: sensor, system readiness, enrollment, verification"),
-                trailing: AnyView(StatusBadge(text: overallText, level: overallLevel))
+                subtitle: T("按系统面板的顺序录入一枚新指纹，并核对它真的写进去了",
+                            "Enrol a new fingerprint in the system's own order, then check it actually landed"),
+                trailing: AnyView(StatusBadge(text: model.enrollmentBadge.text, level: model.enrollmentBadge.level))
             )
 
-            Card(title: T("录入流程", "Enrollment path"), icon: "touchid") {
-                VStack(alignment: .leading, spacing: 0) {
-                    FactGrid(facts: [
-                        Fact(T("传感器", "Sensor"), model.hardwareText),
-                        Fact(T("指纹", "Fingerprints"), model.enrollmentText)
-                    ], columns: 2, labelWidth: 84)
+            enrollmentCard
+            verificationCard
 
-                    Rectangle().fill(Surface.hairline).frame(height: 1)
-                        .padding(.vertical, Space.md)
-
-                    VStack(alignment: .leading, spacing: Space.md) {
-                        ForEach(model.steps) { step in
-                            stepRow(step)
-                        }
-                    }
-
-                    if let message = model.message {
-                        NoticeBar(text: message, level: .warning)
-                            .padding(.top, Space.md)
-                    }
-
-                    actionRow
-                        .padding(.top, Space.md)
-                }
+            if let message = model.message {
+                NoticeBar(text: message, level: model.didEnroll ? .ok : .warning)
             }
 
-            if model.verifyResult == .success {
-                NoticeBar(text: T("四步全部走通：传感器存在、系统就绪、指纹已录入、认证成功。",
-                                  "All four steps passed: the sensor exists, the system is ready, a fingerprint is enrolled, and authentication succeeded."),
-                          level: .ok)
-            }
-
-            NoticeBar(text: T("录入只能由系统完成，App 不读取、不保存任何指纹数据；指纹比对全部在安全隔区内进行。",
-                              "Only the system can enrol fingerprints. This app reads and stores no fingerprint data; matching happens inside the Secure Enclave."),
+            NoticeBar(text: T("指纹模板只能由系统写入：App 不读取、不保存任何指纹数据，也无法代你录入；这里做的是把同样的步骤摆出来，并用系统返回的模板数量确认结果。",
+                              "Only the system can write fingerprint templates. This app reads and stores no fingerprint data and cannot enrol on your behalf; it lays out the same steps and confirms the result with the system's template count."),
                       level: .neutral)
         }
         .onAppear { model.refresh() }
-        // 从系统设置录完指纹切回来，自动复查：用户不必手动点刷新
+        .onDisappear { model.stopWatching() }
+        // 从系统设置录完指纹切回来，立刻复查一次，不必等下一拍
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             model.refresh()
         }
     }
 
-    // MARK: - 行与动作
+    // MARK: - 录入
 
-    private func stepRow(_ step: TouchIDModel.Step) -> some View {
-        HStack(alignment: .top, spacing: Space.md) {
-            ZStack {
-                Circle()
-                    .fill(symbolColor(step.status).opacity(step.status == .pending ? 0.08 : 0.14))
-                    .frame(width: 20, height: 20)
-                if step.status == .passed {
-                    Image(systemName: "checkmark")
-                        .font(Typo.icon(9, weight: .bold))
-                        .foregroundColor(symbolColor(step.status))
-                } else if step.status == .failed {
-                    Image(systemName: "xmark")
-                        .font(Typo.icon(9, weight: .bold))
-                        .foregroundColor(symbolColor(step.status))
-                } else {
-                    Text("\(step.index)")
-                        .font(Typo.icon(9, weight: .semibold))
-                        .foregroundColor(symbolColor(step.status))
+    private var enrollmentCard: some View {
+        Card(title: T("录入新指纹", "Enrol a fingerprint"), icon: "touchid") {
+            VStack(alignment: .leading, spacing: Space.md) {
+                HStack(alignment: .top, spacing: Space.xl) {
+                    FactGrid(facts: [
+                        Fact(T("传感器", "Sensor"), model.hardwareText),
+                        Fact(T("已录入", "Fingerprints"), model.templateText)
+                    ], columns: 2, labelWidth: 76)
+                        .frame(maxWidth: 360, alignment: .leading)
+
+                    Spacer(minLength: Space.md)
+
+                    if model.isWatching {
+                        HStack(spacing: Space.xs) {
+                            ProgressView().controlSize(.small).scaleEffect(0.65).frame(width: 12, height: 12)
+                            Text(model.liveText ?? "")
+                                .font(Typo.caption)
+                                .foregroundColor(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: 420, alignment: .leading)
+                    }
                 }
+
+                Rectangle().fill(Surface.hairline).frame(height: 1)
+
+                // 与系统面板同序的五步；编号而不是勾，因为这些步骤 App 看不到中间状态
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(Array(model.enrollmentSteps.enumerated()), id: \.offset) { index, text in
+                        HStack(alignment: .top, spacing: Space.sm) {
+                            Text(String(format: "%02d", index + 1))
+                                .font(Typo.mono)
+                                .foregroundColor(.secondary)
+                                .frame(width: 18, alignment: .trailing)
+                            Text(text)
+                                .font(Typo.caption)
+                                .foregroundColor(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+
+                actionRow
             }
-            .padding(.top, 1)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(step.title)
-                    .font(Typo.bodyStrong)
-                    .foregroundColor(step.status == .pending ? .secondary : .primary)
-                Text(step.detail)
-                    .font(Typo.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Spacer(minLength: Space.sm)
-
-            trailingMark(step.status)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    @ViewBuilder
-    private func trailingMark(_ status: TouchIDModel.Step.Status) -> some View {
-        switch status {
-        case .passed:
-            // 左侧圆片已经是勾，这里再画一次只会重复
-            EmptyView()
-        case .failed:
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(Typo.icon(11, weight: .semibold))
-                .foregroundColor(StatusPalette.critical)
-        case .active:
-            Text(T("待完成", "Pending"))
-                .font(Typo.caption)
-                .foregroundColor(StatusPalette.warning)
-        case .pending, .unavailable:
-            EmptyView()
         }
     }
 
     @ViewBuilder
     private var actionRow: some View {
         HStack(spacing: Space.sm) {
-            switch model.phase {
-            case .ready:
-                PrimaryButton(title: model.isVerifying
-                              ? T("等待指纹…", "Waiting for finger…")
-                              : T("验证指纹", "Verify Fingerprint"),
+            if model.sensor != .none && model.phase != .noPasscode {
+                PrimaryButton(title: model.isWatching
+                              ? T("正在等待系统写入…", "Waiting for the system…")
+                              : T("开始录入", "Start enrolling"),
                               icon: "touchid",
-                              enabled: !model.isVerifying) {
-                    model.verify()
+                              enabled: !model.isWatching) {
+                    model.beginEnrollment()
                 }
-                Text(T("把手放在 Touch ID 上，直到提示成功。", "Keep your finger on Touch ID until it reports success."))
-                    .font(Typo.caption)
-                    .foregroundColor(.secondary)
+            }
 
-            case .notEnrolled:
-                PrimaryButton(title: T("打开 Touch ID 设置", "Open Touch ID settings"),
-                              icon: "gearshape", enabled: true) {
-                    model.openEnrollmentSettings()
+            if model.isWatching {
+                SecondaryButton(title: T("停止监听", "Stop watching"), icon: "stop.fill") {
+                    model.stopWatching()
                 }
-                SecondaryButton(title: T("我已录入，复查", "I enrolled — re-check"), icon: "arrow.clockwise") {
-                    model.refresh()
-                }
-                Text(T("在系统设置里添加指纹后回到本页，会自动复查。",
-                       "Add a fingerprint, come back, and this page re-checks on its own."))
-                    .font(Typo.caption)
-                    .foregroundColor(.secondary)
+            }
 
-            case .lockedOut:
-                PrimaryButton(title: T("用密码解锁", "Unlock with password"),
-                              icon: "lock.open", enabled: !model.isVerifying) {
+            if model.phase == .lockedOut {
+                SecondaryButton(title: T("用密码解锁", "Unlock with password"),
+                                icon: "lock.open", enabled: !model.isVerifying) {
                     model.unlock()
                 }
-                Text(T("生物识别被锁定后，只能用登录密码解开。",
-                       "After a lockout, only the login password can unlock biometrics."))
-                    .font(Typo.caption)
-                    .foregroundColor(.secondary)
+            }
 
-            case .noPasscode:
+            if model.phase == .noPasscode {
                 SecondaryButton(title: T("打开 Touch ID 设置", "Open Touch ID settings"), icon: "gearshape") {
                     model.openEnrollmentSettings()
                 }
-                Text(T("先设置登录密码，生物识别才可用。", "Set a login password first; biometrics need it."))
-                    .font(Typo.caption)
-                    .foregroundColor(.secondary)
-
-            case .unavailable, .unknown:
-                SecondaryButton(title: T("重新检测", "Check again"), icon: "arrow.clockwise") {
-                    model.refresh()
-                }
-                Text(model.sensor == .none
-                     ? T("没有传感器时这一项只能标为不可用。", "Without a sensor this item can only be marked unavailable.")
-                     : T("系统暂未提供生物识别能力。", "The system is not offering biometric authentication."))
-                    .font(Typo.caption)
-                    .foregroundColor(.secondary)
             }
+
+            if model.didEnroll {
+                SecondaryButton(title: T("再录一枚", "Enrol another"), icon: "plus") {
+                    model.beginEnrollment()
+                }
+            }
+
+            Text(hintText)
+                .font(Typo.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 520, alignment: .leading)
 
             Spacer(minLength: 0)
         }
     }
 
-    private func symbolColor(_ status: TouchIDModel.Step.Status) -> Color {
-        switch status {
-        case .passed: return StatusPalette.ok
-        case .failed: return StatusPalette.critical
-        case .active: return StatusPalette.warning
-        case .pending, .unavailable: return StatusPalette.neutral
+    private var hintText: String {
+        switch model.phase {
+        case .unavailable:
+            return T("这台 Mac 没有可用的生物识别传感器，无法录入。",
+                     "No biometric sensor is available, so there is nothing to enrol.")
+        case .noPasscode:
+            return T("先设置登录密码，生物识别才能启用。", "Set a login password first; biometrics need it.")
+        case .lockedOut:
+            return T("生物识别被锁定后，只能用登录密码解开。", "After a lockout, only the login password can unlock biometrics.")
+        default:
+            return model.didEnroll
+                ? T("这枚已经写进系统，接下来验证它能不能被识别。", "It is written; now check that it can be recognized.")
+                : T("点「开始录入」会打开系统面板；面板里完成录入后，这里会自动确认。",
+                    "Start enrolling opens the system panel; the count here updates when it is written.")
         }
     }
 
-    private var overallText: String {
-        if model.sensor == .none { return T("不可用", "Unavailable") }
-        if model.isComplete { return T("通过", "Passed") }
-        return T("待完成", "In progress")
+    // MARK: - 验证
+
+    private var verificationCard: some View {
+        Card(title: T("验证指纹", "Verify"), icon: "checkmark.seal",
+             trailing: AnyView(verifyBadge)) {
+            VStack(alignment: .leading, spacing: Space.sm) {
+                Text(model.verifyDetail)
+                    .font(Typo.body)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: Space.sm) {
+                    PrimaryButton(title: model.isVerifying
+                                  ? T("等待指纹…", "Waiting for finger…")
+                                  : T("验证指纹", "Verify Fingerprint"),
+                                  icon: "touchid",
+                                  enabled: !model.isVerifying && model.phase == .ready) {
+                        model.verify()
+                    }
+                    if model.attempts > 0 {
+                        Text(T("本次已通过 \(model.attempts) 次", "\(model.attempts) successful attempt(s) this session"))
+                            .font(Typo.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
+        }
     }
 
-    private var overallLevel: BadgeLevel {
-        if model.sensor == .none { return .neutral }
-        return model.isComplete ? .ok : .warning
+    private var verifyBadge: some View {
+        switch model.verifyResult {
+        case .success:
+            return StatusBadge(text: T("通过", "Passed"), level: .ok)
+        case .failed, .lockedOut:
+            return StatusBadge(text: T("未通过", "Failed"), level: .critical)
+        case .canceled:
+            return StatusBadge(text: T("已取消", "Canceled"), level: .neutral)
+        case .none:
+            return StatusBadge(text: T("待验证", "Not verified"), level: .neutral)
+        }
     }
 }

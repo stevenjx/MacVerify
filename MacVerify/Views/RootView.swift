@@ -103,6 +103,7 @@ struct RootView: View {
     @ObservedObject private var themeStore = ThemeStore.shared
     @AppStorage("macverify.guide.seen") private var guideSeen = false
     @ObservedObject private var progress = TestProgress.shared
+    @ObservedObject private var updates = UpdateChecker.shared
     @State private var showGuide = false
 
     @State private var selection: SidebarItem = {
@@ -134,6 +135,10 @@ struct RootView: View {
         }
         .onAppear {
             if !guideSeen { showGuide = true }
+        }
+        .task {
+            // 启动时查一次（6 小时内不重复），有新版本就在侧栏版本号处提示
+            await updates.checkIfNeeded()
         }
     }
 
@@ -177,41 +182,138 @@ struct RootView: View {
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
 
-                // 版本号与「重新扫描」同一条带边框的行里：左边版本，右边动作
-                HStack(spacing: Space.sm) {
-                    Text("v\(BuildInfo.version)")
-                        .font(Typo.mono)
-                        .foregroundColor(.secondary)
-                    Spacer(minLength: Space.xs)
-                    Button(action: { system.refresh(); battery.refresh() }) {
-                        HStack(spacing: 4) {
-                            if system.isScanning {
-                                ProgressView().controlSize(.small).scaleEffect(0.6).frame(width: 12, height: 12)
-                            } else {
-                                Image(systemName: "arrow.clockwise").font(Typo.captionStrong)
-                            }
-                            Text(T("重新扫描", "Rescan")).font(Typo.caption)
-                        }
-                        .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(system.isScanning)
-                }
-                .padding(.horizontal, Space.sm + 2)
-                .padding(.vertical, 5)
-                .background(
-                    RoundedRectangle(cornerRadius: Radius.control, style: .continuous).fill(Surface.well)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
-                        .stroke(Surface.border, lineWidth: 1)
-                )
-                .padding(.horizontal, 12)
-                .padding(.bottom, 10)
+                versionRow
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 10)
             }
         }
         .frame(width: 208)
         .background(Color(NSColor.controlBackgroundColor))
+    }
+
+    // MARK: - 版本行
+
+    /// 版本号与新版本提示。侧栏只有 208pt，横着放不下「v1.0.10 · 1.0.12 可更新」，
+    /// 所以提示另起一行，仍在同一个描边框里。
+    private var versionRow: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: Space.sm) {
+                Button {
+                    Task { await updates.handleVersionTap() }
+                } label: {
+                    HStack(spacing: 4) {
+                        if case .available = updates.status {
+                            Circle()
+                                .fill(StatusPalette.warning)
+                                .frame(width: 5, height: 5)
+                        }
+                        Text("v\(BuildInfo.version)")
+                            .font(Typo.mono)
+                            .foregroundColor(hasUpdate ? StatusPalette.warning : .secondary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(versionTooltip)
+                .accessibilityLabel(versionAccessibilityLabel)
+
+                Spacer(minLength: Space.xs)
+
+                Button(action: { system.refresh(); battery.refresh() }) {
+                    HStack(spacing: 4) {
+                        if system.isScanning {
+                            ProgressView().controlSize(.small).scaleEffect(0.6).frame(width: 12, height: 12)
+                        } else {
+                            Image(systemName: "arrow.clockwise").font(Typo.captionStrong)
+                        }
+                        Text(T("重新扫描", "Rescan")).font(Typo.caption)
+                    }
+                    .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(system.isScanning)
+            }
+
+            if let line = updateLine {
+                Button {
+                    Task { await updates.handleVersionTap() }
+                } label: {
+                    HStack(spacing: 4) {
+                        if case .downloading = updates.status {
+                            ProgressView().controlSize(.small).scaleEffect(0.5).frame(width: 9, height: 9)
+                        } else {
+                            Image(systemName: line.icon).font(Typo.icon(9, weight: .semibold))
+                        }
+                        Text(line.text)
+                            .font(Typo.caption)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                    }
+                    .foregroundColor(line.level.color)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(versionTooltip)
+            }
+        }
+        .padding(.horizontal, Space.sm + 2)
+        .padding(.vertical, 5)
+        .background(
+            RoundedRectangle(cornerRadius: Radius.control, style: .continuous).fill(Surface.well)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.control, style: .continuous)
+                .stroke(hasUpdate ? StatusPalette.warning.opacity(0.45) : Surface.border, lineWidth: 1)
+        )
+    }
+
+    private var hasUpdate: Bool {
+        if case .available = updates.status { return true }
+        return false
+    }
+
+    /// 新版本、下载中、已下载三种状态各给一行说明；检查中与失败都不出声，
+    /// 免得侧栏因为网络问题闪来闪去。
+    private var updateLine: (text: String, icon: String, level: BadgeLevel)? {
+        switch updates.status {
+        case .available(let release):
+            return (T("\(release.version) 可下载", "\(release.version) available"), "arrow.down.circle.fill", .warning)
+        case .downloading(let progress, _):
+            return (T("下载中 \(Int(progress * 100))%", "Downloading \(Int(progress * 100))%"),
+                    "arrow.down.circle", .warning)
+        case .downloaded:
+            return (T("已下载，点此查看", "Downloaded · show in Finder"), "checkmark.circle.fill", .ok)
+        case .idle, .checking, .upToDate, .failed:
+            return nil
+        }
+    }
+
+    private var versionTooltip: String {
+        switch updates.status {
+        case .available(let release):
+            return T("有新版本 \(release.version)，点击下载 \(release.assetName)",
+                     "Version \(release.version) is available — click to download \(release.assetName)")
+        case .downloading:
+            return T("正在下载最新版 DMG", "Downloading the latest DMG")
+        case .downloaded(let url):
+            return T("已下载到 \(url.path)，点击在访达中显示", "Saved to \(url.path) — click to show in Finder")
+        case .upToDate(let version):
+            return T("已是最新版本（远端 \(version)）", "Up to date (latest is \(version))")
+        case .failed(let message):
+            return T("检查更新失败：\(message)，点击重试", "Update check failed: \(message) — click to retry")
+        case .checking:
+            return T("正在检查新版本", "Checking for updates")
+        case .idle:
+            return T("点击检查新版本", "Click to check for updates")
+        }
+    }
+
+    private var versionAccessibilityLabel: String {
+        if case .available(let release) = updates.status {
+            return T("版本 \(BuildInfo.version)，有新版本 \(release.version) 可下载",
+                     "Version \(BuildInfo.version), \(release.version) is available to download")
+        }
+        return T("版本 \(BuildInfo.version)", "Version \(BuildInfo.version)")
     }
 
     /// 已测：实心绿勾；未测：虚线圆圈。不用灰色实心圆——那和「不可用」的含义撞车。

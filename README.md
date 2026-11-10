@@ -9,7 +9,7 @@ guesses, interpolates or substitutes a default.
 数据取自 IOKit、sysctl、CoreGraphics 与只读系统命令；有凭据才下结论，没有就如实写「不可用」，
 不估算、不补值、不用 0 或 false 冒充。
 
-macOS 12 Monterey+ · Intel & Apple Silicon（通用二进制）· 中英双语 · 完全不联网
+macOS 12 Monterey+ · Intel & Apple Silicon（通用二进制）· 中英双语 · 检测全程离线
 
 ![Overview](docs/screenshots/v2/overview-light.png)
 
@@ -40,7 +40,7 @@ macOS 12 Monterey+ · Intel & Apple Silicon（通用二进制）· 中英双语 
 | 供电 | 适配器功率、充电状态、实时功率、剩余时间 |
 | 音频 | 100 Hz–16 kHz 扫频，可单独测左 / 右 / 双声道；麦克风电平、录音与回放 |
 | 摄像头 | 实时预览、采集分辨率；录制 `.mov` 到桌面并页内回放 |
-| Touch ID | 硬件与指纹录入状态，真正调起一次识别 |
+| Touch ID | 完整录入链路：传感器 → 系统准备 → 指纹录入（引导到系统设置并自动复查）→ 真正调起一次识别 |
 | 接口测试 | 逐口插入，IOKit 实时差分出接入 / 拔出事件与 USB 链路速率 |
 
 ## 系统要求 / Requirements
@@ -55,6 +55,9 @@ macOS 12 Monterey+ · Intel & Apple Silicon（通用二进制）· 中英双语 
 3. 首次打开如提示"无法验证开发者"：右键点击 → 打开（或 `xattr -dr com.apple.quarantine /Applications/MacVerify.app`）
 
 应用为 ad-hoc 签名，未做 Apple 公证。
+
+**关于更新**：启动时会向 GitHub 查一次最新 release（6 小时内不重复）。有新版本时，侧栏左下角的版本号变黄并多出一行提示，
+点版本号即把该版本的官方 DMG 下载到「下载」文件夹，不自动安装、不静默替换。
 
 ## 数据来源 / Data sources
 
@@ -97,13 +100,14 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
 
 ## 隐私 / Privacy
 
-不联网、不上传、不写入系统设置。录音与录像只在本机：录音写临时目录、退出即清理；录像只在点击录制时写入桌面。
-检测数据仅保存在本机 `UserDefaults`。
+检测全程离线，不上传任何本机数据，不写入系统设置。唯一的外连是启动时向 GitHub 查有没有新版本：只读公开的
+release 元数据，不携带序列号、机型等任何本机信息。录音与录像只在本机：录音写临时目录、退出即清理；录像只在点击
+录制时写入桌面。检测数据仅保存在本机 `UserDefaults`。
 
 ## 开发与测试 / Development
 
 ```bash
-swift test --disable-sandbox          # 95 个单元测试
+swift test --disable-sandbox          # 104 个单元测试
 python3 Scripts/check_baseline.py     # 机型表与规格基线自检
 python3 Scripts/check_localization.py # 中英文案查漏
 ```

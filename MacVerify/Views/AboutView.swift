@@ -97,8 +97,8 @@ struct AboutView: View {
                 HStack(alignment: .top, spacing: Space.xl) {
                     note(icon: "lock.shield",
                          title: T("只在本机运行", "Runs locally"),
-                         detail: T("不联网、不上传，检测结果只存在这台 Mac 的 UserDefaults 里。",
-                                   "No network calls, no uploads; results stay in this Mac's UserDefaults."))
+                         detail: T("检测全程离线；唯一的联网动作是启动时向 GitHub 查有没有新版本，只读公开的 release 信息，不发送本机任何数据。",
+                                   "Inspection is fully offline. The only network call is a startup check of GitHub for a new release — public metadata only, nothing about this Mac is sent."))
                     note(icon: "terminal",
                          title: T("数据来源", "Data sources"),
                          detail: T("IOKit、sysctl、CoreGraphics 与只读系统命令，不读取任何账号凭据。",

@@ -205,6 +205,10 @@ struct FactGrid: View {
                         .font(Typo.caption)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
+                        // 标签定宽是为了让值成列对齐；遇到 "Marketing name" 这种长标签
+                        // 宁可轻微缩字，也不要截成 "Marketing na…"
+                        .minimumScaleFactor(0.8)
+                        .allowsTightening(true)
                         .frame(width: labelWidth, alignment: .leading)
                     valueText(fact)
                     Spacer(minLength: 0)
@@ -223,6 +227,7 @@ struct FactGrid: View {
                 .font(fact.mono ? Typo.mono : Typo.value)
                 .foregroundColor(fact.color)
                 .lineLimit(2)
+                .minimumScaleFactor(0.9)
                 .textSelection(.enabled)
         } else {
             HStack(spacing: 3) {

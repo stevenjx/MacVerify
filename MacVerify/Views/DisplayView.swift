@@ -147,7 +147,9 @@ struct DisplayView: View {
 
                     Rectangle().fill(Surface.hairline).frame(width: 1, height: 62)
 
-                    FactGrid(facts: panelFacts, columns: 2, labelWidth: 76)
+                    // 单列：型号名（Built-in Retina Display）在两列时会被截断，
+                    // 而这是判断屏幕来源最要紧的一条
+                    FactGrid(facts: panelFacts, columns: 1, labelWidth: 82)
                 }
             }
 
